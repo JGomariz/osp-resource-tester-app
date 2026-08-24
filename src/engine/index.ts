@@ -12,6 +12,13 @@ export type {
 } from "./catalog";
 export { parseCatalog } from "./catalog";
 export type {
+  BundledCatalog,
+  CatalogLoad,
+  CatalogOrigin,
+  CatalogStore,
+} from "./catalogSource";
+export { loadCatalog } from "./catalogSource";
+export type {
   DefinedResource,
   MainPanelView,
   TreeRow,

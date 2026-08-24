@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { bundledCatalogSource } from "../catalog/bundledCatalog";
 import defaultCatalogJson from "../catalog/default-catalog.json";
 import { parseCatalog } from "./catalog";
 import { createTreeState, treeRows } from "./catalogTree";
@@ -14,6 +15,19 @@ function defaultCatalog() {
 describe("the bundled default Catalog", () => {
   it("is valid", () => {
     expect(parseCatalog(defaultCatalogJson).ok).toBe(true);
+  });
+
+  // This text is what a first run writes to the override, and the run after
+  // it reads that file back. If the two ever disagree the app would warn
+  // about a file it wrote itself, one launch later.
+  it("survives the round trip through the text seeded into the override", () => {
+    const { catalog, text } = bundledCatalogSource();
+
+    const reparsed = parseCatalog(JSON.parse(text));
+
+    expect(reparsed.ok).toBe(true);
+    if (!reparsed.ok) return;
+    expect(reparsed.catalog).toEqual(catalog);
   });
 
   it("holds the tree the spec asks for, CRMB2B first with its three Resources", () => {
