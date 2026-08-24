@@ -18,7 +18,9 @@ permissions:
 
 concurrency:
   group: release-${{ github.ref }}
-  cancel-in-progress: true
+  # Never cancel a release: interrupting `gh release create` between assets
+  # would leave a published release missing one of its two downloads.
+  cancel-in-progress: false
 
 jobs:
   # The cheap gate. Nothing is compiled for either platform until the frontend
@@ -30,11 +32,15 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
+      # The build jobs run this again inside `tauri build`, but a frontend that
+      # does not compile would otherwise surface there — after two expensive
+      # platform builds have already started.
+      - run: npm run build
 
   build:
     name: ${{ matrix.name }}
@@ -53,18 +59,20 @@ jobs:
             rust_targets: aarch64-apple-darwin x86_64-apple-darwin
             build_args: --bundles app --target universal-apple-darwin
             artifact: ProbadorDeRecursos-macos.zip
+            artifact_name: ProbadorDeRecursos-macos
           - name: Windows (portable .exe)
             runner: windows-latest
             rust_targets: x86_64-pc-windows-msvc
             build_args: --no-bundle
             artifact: ProbadorDeRecursos-windows.exe
+            artifact_name: ProbadorDeRecursos-windows
 
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
 
       - name: Install Rust targets
@@ -112,9 +120,13 @@ jobs:
         if: runner.os == 'Windows'
         run: Copy-Item "src-tauri/target/release/resource-tester.exe" "${{ matrix.artifact }}"
 
+      # The artifact name carries no extension on purpose: upload-artifact
+      # always zips what it is given, so naming it "…-macos.zip" would hand a
+      # dispatch run a file called "…-macos.zip.zip". The file inside keeps its
+      # real name, which is what the publish job and the release assets use.
       - uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifact }}
+          name: ${{ matrix.artifact_name }}
           path: ${{ matrix.artifact }}
           if-no-files-found: error
 
@@ -136,12 +148,21 @@ jobs:
           path: artifacts
           merge-multiple: true
 
-      - name: Create the release
+      # Idempotent, because the alternative is nasty: if this job fails after
+      # the release exists — a flaky upload, a cancelled run — `create` would
+      # fail on every re-run, and the only way forward would be deleting the
+      # release by hand. So create it once, then upload over whatever is there.
+      - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
         run: |
-          gh release create "${{ github.ref_name }}" \
-            --title "Probador de Recursos ${{ github.ref_name }}" \
-            --notes-file .github/release-notes.md \
+          set -euo pipefail
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --title "Probador de Recursos $TAG" \
+              --notes-file .github/release-notes.md
+          fi
+          gh release upload "$TAG" --clobber \
             artifacts/ProbadorDeRecursos-macos.zip \
             artifacts/ProbadorDeRecursos-windows.exe

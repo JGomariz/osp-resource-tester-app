@@ -19,7 +19,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
       - run: npm ci
       - run: npm run typecheck
@@ -42,8 +42,57 @@ jobs:
             ~/.cargo/registry/cache
             ~/.cargo/git/db
             src-tauri/target
-          key: cargo-ci-${{ hashFiles('src-tauri/Cargo.lock') }}
-          restore-keys: cargo-ci-
+          # The sha makes every run a miss, so the cache is re-saved with
+          # whatever the build just produced; restore-keys then supplies the
+          # previous run's directory to build on top of. Keyed on Cargo.lock
+          # alone it would be an exact hit forever, freezing target/ at
+          # whatever the first run happened to leave there.
+          key: cargo-ci-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}-${{ github.sha }}
+          restore-keys: |
+            cargo-ci-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}-
+            cargo-ci-${{ runner.os }}-
       - name: Rust tests
         working-directory: src-tauri
         run: cargo test
+
+  # The release workflow's packaging path would otherwise first run on a tag,
+  # when it is most expensive to be wrong — and the Windows half cannot be
+  # built on a maintainer's machine at all, which is why ADR-0001 accepts
+  # CI-built releases. So the exact release build runs here too, and asserts
+  # the binary lands where the release workflow will look for it. Nothing is
+  # packaged or published; this only proves the path exists.
+  windows-binary:
+    name: Windows binary builds
+    # Pull requests skip it: it is the one job here that costs a Windows
+    # runner, and it guards a release rather than a review.
+    if: github.event_name == 'push'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            src-tauri/target
+          key: cargo-ci-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}-${{ github.sha }}
+          restore-keys: |
+            cargo-ci-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}-
+            cargo-ci-${{ runner.os }}-
+      - run: npm ci
+      - name: Rust tests
+        working-directory: src-tauri
+        run: cargo test
+      - name: Build the portable exe
+        run: npm run tauri -- build --no-bundle
+      - name: Check the exe is where the release expects it
+        run: |
+          $exe = "src-tauri/target/release/resource-tester.exe"
+          if (-not (Test-Path $exe)) { throw "no binary at $exe" }
+          "{0:N1} MB" -f ((Get-Item $exe).Length / 1MB)
