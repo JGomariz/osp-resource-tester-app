@@ -71,7 +71,7 @@ describe("sendResource on an Apigee URL", () => {
 
     expect(requests[0]).toEqual({
       method: "GET",
-      url: "https://api-ent1-openapi.cloudready-nonprod.cloud.si.orange.es/token",
+      url: "https://api-ent1-openapi.cloudready-nonprod.cloud.si.orange.es/jwtgenerator/v1/token",
       headers: {
         "x-forwarded-server": "areaclientes.si.orange.es",
         service: "PAE",
@@ -352,7 +352,7 @@ describe("sendResource on a Zuul URL", () => {
 
 describe("a request that never completed", () => {
   const TIMED_OUT = new TransportFailure(
-    "error sending request for url (https://api-ent1-openapi.cloudready-nonprod.cloud.si.orange.es/token): operation timed out",
+    "error sending request for url (https://api-ent1-openapi.cloudready-nonprod.cloud.si.orange.es/jwtgenerator/v1/token): operation timed out",
     { timedOut: true, failedToConnect: false },
   );
 

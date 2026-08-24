@@ -9,7 +9,7 @@ import { TransportFailure } from "./http";
  */
 const CHAINS = {
   timeout:
-    "error sending request for url (https://api-ent1-openapi.cloudready-nonprod.cloud.si.orange.es/token): operation timed out",
+    "error sending request for url (https://api-ent1-openapi.cloudready-nonprod.cloud.si.orange.es/jwtgenerator/v1/token): operation timed out",
   dns: "error sending request for url (https://zuul-uat.int.si.orange.es:9061/x): client error (Connect): dns error: failed to lookup address information: nodename nor servname provided, or not known",
   refused:
     "error sending request for url (https://zuul-uat.int.si.orange.es:9061/x): client error (Connect): tcp connect error: Connection refused (os error 61)",

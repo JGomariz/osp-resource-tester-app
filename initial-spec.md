@@ -32,7 +32,7 @@ This app is designed to test the resource availability in backend services for n
 - Url composition:
   - The template for apigee request should be: https://api-{{env}}-openapi.cloudready-nonprod.cloud.si.orange.es/jwt. Where {{env}} is the selected environment.
   - Before each apigee request, a token should be generated and added to the request header with this format: Authorization: {{token}}.
-  - The token should be generated using the following url: https://api-{{env}}-openapi.cloudready-nonprod.cloud.si.orange.es/token. Where {{env}} is the selected environment.
+  - The token should be generated using the following url: ~~https://api-{{env}}-openapi.cloudready-nonprod.cloud.si.orange.es/token~~ **corrected 2026-08-24: https://api-{{env}}-openapi.cloudready-nonprod.cloud.si.orange.es/jwtgenerator/v1/token**. Where {{env}} is the selected environment. (The original path returned 404 with an empty body from Apigee — nothing was deployed at that basepath. Struck through rather than replaced so the record of what was originally specified survives.)
     - The headers in the token request should be:
         x-forwarded-server:areaclientes.si.orange.es
         service:PAE

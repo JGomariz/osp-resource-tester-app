@@ -62,7 +62,7 @@ export function statusClass(status: number): StatusClass {
 }
 
 function tokenUrl(environment: Environment): string {
-  return `https://api-${environment}-openapi.cloudready-nonprod.cloud.si.orange.es/token`;
+  return `https://api-${environment}-openapi.cloudready-nonprod.cloud.si.orange.es/jwtgenerator/v1/token`;
 }
 
 /**
