@@ -1,0 +1,49 @@
+# Runs on every push and pull request, so a regression is found when it is
+# introduced rather than when someone tries to cut a release.
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: Types and Vitest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  rust:
+    name: Rust tests
+    # macOS rather than ubuntu: on Linux the tauri crate links GTK and
+    # webkit2gtk, so testing there means maintaining an apt list for a
+    # platform this app is never shipped on.
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            src-tauri/target
+          key: cargo-ci-${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: cargo-ci-
+      - name: Rust tests
+        working-directory: src-tauri
+        run: cargo test

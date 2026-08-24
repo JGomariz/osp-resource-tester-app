@@ -1,0 +1,147 @@
+# Builds the two downloadable binaries and, for a tag, publishes them.
+#
+# Windows is built with --no-bundle on purpose: the bundle targets for Windows
+# are nsis and msi, both installers, and ADR-0001 commits to a single
+# double-clickable file. The raw release .exe *is* that file. macOS has no
+# equivalent problem — its "app" target is already a self-contained bundle.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+# Read by default; only the publish job is granted write, and only because
+# `gh release create` needs it.
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # The cheap gate. Nothing is compiled for either platform until the frontend
+  # suite and the types are clean, so a broken engine never burns a build.
+  test:
+    name: Types and Vitest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+
+  build:
+    name: ${{ matrix.name }}
+    needs: test
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      # One platform failing should not hide whether the other one works.
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS (.app)
+            runner: macos-latest
+            # Universal, so the one download runs on both Apple Silicon and
+            # the Intel machines still in use. The runners are arm64, so the
+            # x86_64 half needs its target installed explicitly.
+            rust_targets: aarch64-apple-darwin x86_64-apple-darwin
+            build_args: --bundles app --target universal-apple-darwin
+            artifact: ProbadorDeRecursos-macos.zip
+          - name: Windows (portable .exe)
+            runner: windows-latest
+            rust_targets: x86_64-pc-windows-msvc
+            build_args: --no-bundle
+            artifact: ProbadorDeRecursos-windows.exe
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install Rust targets
+        run: rustup target add ${{ matrix.rust_targets }}
+
+      # Only the downloaded crates. A release build's target directory runs to
+      # gigabytes — doubly so for a universal build, which holds two
+      # architectures — and caching that against a 10 GB repo-wide budget
+      # would evict everything else to save a link step.
+      - name: Cache the crate registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: crates-${{ matrix.runner }}-${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: crates-${{ matrix.runner }}-
+
+      - run: npm ci
+
+      # The second half of the gate, run on the platform being shipped rather
+      # than on one stand-in. It earns that: the transport test provokes a real
+      # connection failure and asserts on its cause chain, and those words come
+      # from the platform's own TLS and socket stacks — schannel on Windows,
+      # Security.framework on macOS. A pass on one proves little about the other.
+      - name: Rust tests
+        working-directory: src-tauri
+        run: cargo test
+
+      - name: Build
+        run: npm run tauri -- build ${{ matrix.build_args }}
+
+      # A .app is a directory, and neither an artifact nor a release asset can
+      # be one. ditto is used rather than zip because it keeps the resource
+      # forks and symlinks inside the bundle intact.
+      - name: Package the macOS bundle
+        if: runner.os == 'macOS'
+        run: |
+          ditto -c -k --keepParent \
+            "src-tauri/target/universal-apple-darwin/release/bundle/macos/resource-tester.app" \
+            "${{ matrix.artifact }}"
+
+      - name: Package the Windows binary
+        if: runner.os == 'Windows'
+        run: Copy-Item "src-tauri/target/release/resource-tester.exe" "${{ matrix.artifact }}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}
+          if-no-files-found: error
+
+  # Only a tag becomes a release. A manual dispatch stops at the artifacts
+  # above, which is what makes it useful for checking a build without
+  # publishing anything.
+  publish:
+    name: Publish release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" \
+            --title "Probador de Recursos ${{ github.ref_name }}" \
+            --notes-file .github/release-notes.md \
+            artifacts/ProbadorDeRecursos-macos.zip \
+            artifacts/ProbadorDeRecursos-windows.exe

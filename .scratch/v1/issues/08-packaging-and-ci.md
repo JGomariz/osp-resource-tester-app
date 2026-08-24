@@ -4,10 +4,32 @@
 
 **Blocked by:** 01 — Walking skeleton.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] CI workflow builds a runnable portable Windows `.exe` and a runnable macOS `.app` as release artifacts
-- [ ] Tests (Vitest + Rust) run in CI and gate the build
-- [ ] Binaries are single-file / single-bundle, no installer
-- [ ] Release notes document the SmartScreen and Gatekeeper first-open workarounds
-- [ ] App has its icon and Spanish window title
+- [x] CI workflow builds a runnable portable Windows `.exe` and a runnable macOS `.app` as release artifacts
+- [x] Tests (Vitest + Rust) run in CI and gate the build
+- [x] Binaries are single-file / single-bundle, no installer
+- [x] Release notes document the SmartScreen and Gatekeeper first-open workarounds
+- [x] App has its icon and Spanish window title
+
+## Comments
+
+**2026-08-24 (agent):** Implemented as `.github/workflows/release.yml`, `.github/workflows/ci.yml`, `.github/release-notes.md` and a bundle section in `tauri.conf.json`. Decisions:
+
+- **Windows is built with `--no-bundle`, not with a bundle target.** Tauri's Windows targets are `nsis` and `msi` — both installers, which ADR-0001 explicitly rules out ("Compose/jpackage was rejected because its Windows output is an installer or folder, not a single file"). The raw `target/release/resource-tester.exe` *is* the single double-clickable file the ADR promises, so the way to get it is to stop before bundling. macOS has no such tension: its `app` target is already a self-contained bundle.
+- **The macOS build is universal.** GitHub's macOS runners are arm64, so an ordinary build would produce a binary that refuses to start on the Intel Macs still in use. `--target universal-apple-darwin` with both Rust targets installed costs one extra compile and means one download works everywhere. Verified: `lipo -info` reports `x86_64 arm64`.
+- **`productName` was deliberately left as `resource-tester`.** "Probador de Recursos" would read better in the dock, but it puts spaces into every CI path and into the artifact URLs, and — more to the point — with `--no-bundle` the Windows exe takes its name from Cargo's package name rather than from `productName`, so the two would silently diverge. The download is renamed to `ProbadorDeRecursos-<os>` at the packaging step instead, which gives the colleague a branded filename with none of the build risk.
+- **The gate is split in two, by cost.** Types and Vitest run first on ubuntu, cheap and with no system dependencies; nothing is compiled for either platform until they pass. `cargo test` then runs inside each build job, before bundling, so a Rust failure still blocks the artifact. That is deliberately not one shared Rust job: the transport test provokes a real connection failure and asserts on its cause chain, and those words come from the platform's own TLS and socket stacks — schannel on Windows, Security.framework on macOS — so a pass on one proves little about the other.
+- **Only the crate registry is cached, not `target/`.** A release build's target directory runs to gigabytes, and a universal one holds two architectures; caching that against a 10 GB repo-wide budget would evict everything else to save a link step. `ci.yml`, which builds debug and runs on every push, does cache `target/`.
+- **A manual dispatch stops at the artifacts; only a tag becomes a release.** That is what makes dispatch useful — you can check that both platforms still build without publishing anything.
+- **`gh release create` rather than a third-party action.** The CLI is preinstalled on the runners, so there is no third-party SHA to pin and audit for something this small. `contents: write` is granted to the publish job alone; the rest of the workflow runs read-only.
+- **`ditto` rather than `zip` for the `.app`.** A `.app` is a directory and neither an artifact nor a release asset can be one, so it has to be archived; `ditto` is the macOS-native tool that preserves the symlinks and metadata inside a bundle. The zip is only transport — 7.0 MB, one application inside.
+- **Release notes are in Spanish**, like the UI, since the audience is the team. They cover Gatekeeper (both the right-click route and the Settings route newer macOS versions push you to, plus `xattr -dr com.apple.quarantine`), SmartScreen, and — a real "download and run" caveat the ticket does not mention — that the Windows exe needs the Edge WebView2 runtime, which ships with Windows 11 and updated Windows 10 but is not guaranteed.
+
+**Beyond the ticket:** `ci.yml` (push to main and pull requests) is an addition. The ticket only asks that tests gate the release build, which a release-only workflow satisfies to the letter — but it would mean a regression sits undiscovered until someone cuts a tag. Two small jobs close that. Its Rust job runs on macOS rather than ubuntu because on Linux the `tauri` crate links GTK and webkit2gtk, so testing there means maintaining an apt list for a platform this app is never shipped on.
+
+**Verified:** `npm run typecheck`, `npm test` (114 tests), `cargo test` (5 tests), both workflow files parsed as YAML, and `tauri.conf.json` parsed as JSON. The macOS half was built for real, exactly as the workflow does it: `npm run tauri -- build --bundles app --target universal-apple-darwin` produced `target/universal-apple-darwin/release/bundle/macos/resource-tester.app` — the precise path the workflow references — 24 MB, universal, `icon.icns` embedded, identifier `es.masorange.resourcetester`. The `ditto` packaging step was then run against it, yielding a 7.0 MB zip. The frontend is genuinely inside the bundle: `tauri build` ran `tsc && vite build` and would have failed outright had `frontendDist` been missing.
+
+**Not verified:** the Windows half. Nothing on this machine can build it — that is the whole reason ADR-0001 accepts CI-built releases — so the `.exe` path, the `Copy-Item` step and the WebView2 assumption are reasoned from the toolchain's documented behaviour rather than observed. The first run of the workflow on a tag is the real test. Also unverified: that either binary *launches*, as opposed to being structurally complete; a GUI launch proves little without a screenshot, and screen-recording permission is not granted to the agent's process.
+
+**The icon is a plain brand-orange rounded square**, as ticket 01 left it. It carries the MasOrange primary (`#FF7900`) and is embedded correctly in both the `.app` and the Windows resources, so the criterion holds — but it bears no mark or glyph, so in a dock of a dozen apps it is identifiable only by colour. Worth a designed icon before this goes to a wide audience; out of scope here, and not something to invent unasked.
