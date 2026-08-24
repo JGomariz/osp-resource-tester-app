@@ -125,6 +125,7 @@ describe("responseViewFor", () => {
     status: 200,
     durationMs: 5,
     body,
+    token: null,
   });
 
   it("opens a viewer on the body that came back", () => {
@@ -160,7 +161,18 @@ describe("responseViewFor", () => {
   it("has nothing to show without a response, or when none arrived", () => {
     expect(responseViewFor(null, null)).toBeNull();
     expect(
-      responseViewFor({ kind: "network-error", message: "dns error" }, null),
+      responseViewFor(
+        {
+          kind: "network-error",
+          failure: {
+            kind: "unreachable",
+            message: "No se pudo localizar el servidor.",
+            detail: "dns error",
+          },
+          token: null,
+        },
+        null,
+      ),
     ).toBeNull();
   });
 });

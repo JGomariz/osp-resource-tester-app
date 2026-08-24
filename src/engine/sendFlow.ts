@@ -4,6 +4,8 @@
  * shows. The transport is injected, so this file never touches Tauri.
  */
 
+import type { NetworkFailure } from "./diagnostics";
+import { classifyNetworkFailure } from "./diagnostics";
 import type { Environment, HeaderPanelState } from "./headerPanel";
 import { gatewayIndicator } from "./headerPanel";
 import type { Transport } from "./http";
@@ -14,6 +16,8 @@ export type SendOutcome =
       readonly status: number;
       readonly durationMs: number;
       readonly body: string;
+      /** The Token this send generated, or null for a Zuul send. */
+      readonly token: string | null;
     }
   | {
       readonly kind: "token-failure";
@@ -21,8 +25,31 @@ export type SendOutcome =
       readonly durationMs: number;
       readonly body: string;
     }
-  /** The request never completed. Ticket 06 turns this into plain Spanish. */
-  | { readonly kind: "network-error"; readonly message: string };
+  /** The request never completed: no status, no body, only a diagnosis. */
+  | {
+      readonly kind: "network-error";
+      readonly failure: NetworkFailure;
+      /**
+       * The Token this send generated before the failure, if it got that far.
+       * A Token obtained is a Token worth showing, even when the Resource call
+       * that followed it never completed.
+       */
+      readonly token: string | null;
+    };
+
+/**
+ * Choices that belong to the session rather than to any one Resource, so they
+ * are passed in per send instead of living in the header panel's state.
+ */
+export interface SendOptions {
+  /**
+   * Accept certificates the system does not trust. Off unless the user turns
+   * it on, and never remembered between launches.
+   */
+  readonly skipTlsVerification: boolean;
+}
+
+const DEFAULT_OPTIONS: SendOptions = { skipTlsVerification: false };
 
 /** How the response panel colours a status code. */
 export type StatusClass = "success" | "client-error" | "server-error" | "other";
@@ -77,60 +104,73 @@ function tokenJwt(body: string): string | null {
 export async function sendResource(
   transport: Transport,
   state: HeaderPanelState,
-): Promise<SendOutcome> {
-  try {
-    return await runSend(transport, state);
-  } catch (error) {
-    return { kind: "network-error", message: messageOf(error) };
-  }
-}
-
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
-async function runSend(
-  transport: Transport,
-  state: HeaderPanelState,
+  options: SendOptions = DEFAULT_OPTIONS,
 ): Promise<SendOutcome> {
   const { method } = state.resource.request;
-  const headers: Record<string, string> = {};
+  const { skipTlsVerification } = options;
+  let token: string | null = null;
 
-  if (gatewayIndicator(state.url) === "apigee") {
-    const token = await transport({
-      method: "GET",
-      url: tokenUrl(state.environment),
-      headers: tokenHeaders(state.documentId),
-      skipTlsVerification: false,
+  try {
+    if (gatewayIndicator(state.url) === "apigee") {
+      const answer = await transport({
+        method: "GET",
+        url: tokenUrl(state.environment),
+        headers: tokenHeaders(state.documentId),
+        skipTlsVerification,
+      });
+
+      const jwt =
+        statusClass(answer.status) === "success" ? tokenJwt(answer.body) : null;
+      // No usable Token means no Resource call: the token endpoint's own answer
+      // is what the user needs to see, so an auth failure never reads as a
+      // Resource failure.
+      if (jwt === null) {
+        return {
+          kind: "token-failure",
+          status: answer.status,
+          durationMs: answer.durationMs,
+          body: answer.body,
+        };
+      }
+      token = jwt;
+    }
+
+    const response = await transport({
+      method,
+      url: state.url,
+      headers: token === null ? {} : { Authorization: token },
+      skipTlsVerification,
     });
 
-    const jwt =
-      statusClass(token.status) === "success" ? tokenJwt(token.body) : null;
-    // No usable Token means no Resource call: the token endpoint's own answer
-    // is what the user needs to see, so an auth failure never reads as a
-    // Resource failure.
-    if (jwt === null) {
-      return {
-        kind: "token-failure",
-        status: token.status,
-        durationMs: token.durationMs,
-        body: token.body,
-      };
-    }
-    headers.Authorization = jwt;
+    return {
+      kind: "response",
+      status: response.status,
+      durationMs: response.durationMs,
+      body: response.body,
+      token,
+    };
+  } catch (error) {
+    // Both requests of a send share a scheme — the token endpoint is https,
+    // like the Apigee URL that asks for it — so the URL field answers the only
+    // question the diagnosis asks of it, whichever of the two failed.
+    return {
+      kind: "network-error",
+      failure: classifyNetworkFailure(error, state.url),
+      token,
+    };
   }
+}
 
-  const response = await transport({
-    method,
-    url: state.url,
-    headers,
-    skipTlsVerification: false,
-  });
-
-  return {
-    kind: "response",
-    status: response.status,
-    durationMs: response.durationMs,
-    body: response.body,
-  };
+/**
+ * The Token the inspector shows after this outcome: the one this send
+ * generated, or the one still standing from an earlier send when this one
+ * generated none. Session-scoped — it outlives the Resource selection, so
+ * switching Resource does not lose it.
+ */
+export function lastTokenAfter(
+  outcome: SendOutcome | null,
+  current: string | null,
+): string | null {
+  if (outcome === null || outcome.kind === "token-failure") return current;
+  return outcome.token ?? current;
 }

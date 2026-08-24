@@ -4,7 +4,8 @@ import type { DefinedResource } from "./catalogTree";
 import type { HeaderPanelState } from "./headerPanel";
 import { createHeaderPanelState, editUrl, setDocumentId } from "./headerPanel";
 import type { HttpRequest, HttpResponse, Transport } from "./http";
-import { sendResource, statusClass } from "./sendFlow";
+import { TransportFailure } from "./http";
+import { lastTokenAfter, sendResource, statusClass } from "./sendFlow";
 
 /** CRMB2B → Lines as the bundled Catalog defines it, built via the parser. */
 function lines(): DefinedResource {
@@ -116,6 +117,7 @@ describe("sendResource on an Apigee URL", () => {
       status: 200,
       durationMs: 137,
       body: '{"lines":[{"id":1}]}',
+      token: "t",
     });
   });
 
@@ -130,7 +132,128 @@ describe("sendResource on an Apigee URL", () => {
       status: 404,
       durationMs: 12,
       body: '{"error":"no such customer"}',
+      token: "t",
     });
+  });
+});
+
+describe("the last Token obtained", () => {
+  it("is reported by a send that generated one", async () => {
+    const { transport } = fakeTransport(
+      ok('{"Token-JWT":"abc.def.ghi"}'),
+      ok("{}"),
+    );
+
+    const outcome = await sendResource(transport, readyToSend());
+
+    expect(outcome.kind === "response" && outcome.token).toBe("abc.def.ghi");
+  });
+
+  it("is empty after a Zuul send, which carries no Token", async () => {
+    const { transport } = fakeTransport(ok("<lines/>"));
+    const zuul = editUrl(
+      readyToSend(),
+      "https://zuul-uat.int.si.orange.es:9061/x",
+    );
+
+    const outcome = await sendResource(transport, zuul);
+
+    expect(outcome.kind === "response" && outcome.token).toBeNull();
+  });
+
+  // The Token was generated; it is the Resource call that fell over. That is
+  // exactly when the user wants to see the Token.
+  it("is still reported when the Resource call never completed", async () => {
+    const transport: Transport = async (request) => {
+      if (request.url.includes("/token")) return ok('{"Token-JWT":"abc.def"}');
+      throw new TransportFailure("client error (Connect): record overflow", {
+        timedOut: false,
+        failedToConnect: true,
+      });
+    };
+
+    const outcome = await sendResource(transport, readyToSend());
+
+    expect(outcome.kind === "network-error" && outcome.token).toBe("abc.def");
+  });
+
+  describe("lastTokenAfter", () => {
+    it("has nothing to show before anything is sent", () => {
+      expect(lastTokenAfter(null, null)).toBeNull();
+    });
+
+    it("takes the Token of the send that just finished", () => {
+      expect(
+        lastTokenAfter(
+          {
+            kind: "response",
+            status: 200,
+            durationMs: 1,
+            body: "{}",
+            token: "fresh",
+          },
+          "stale",
+        ),
+      ).toBe("fresh");
+    });
+
+    it("keeps the Token of the session when a Zuul send obtained none", () => {
+      expect(
+        lastTokenAfter(
+          {
+            kind: "response",
+            status: 200,
+            durationMs: 1,
+            body: "{}",
+            token: null,
+          },
+          "earlier",
+        ),
+      ).toBe("earlier");
+    });
+
+    it("keeps the Token of the session when a Token could not be generated", () => {
+      expect(
+        lastTokenAfter(
+          { kind: "token-failure", status: 401, durationMs: 1, body: "{}" },
+          "earlier",
+        ),
+      ).toBe("earlier");
+    });
+  });
+});
+
+describe("the skip-TLS toggle", () => {
+  it("is off unless a send asks for it", async () => {
+    const { transport, requests } = fakeTransport(
+      ok('{"Token-JWT":"t"}'),
+      ok("{}"),
+    );
+
+    await sendResource(transport, readyToSend());
+
+    expect(requests.map((request) => request.skipTlsVerification)).toEqual([
+      false,
+      false,
+    ]);
+  });
+
+  // A broken certificate on the token endpoint would block the send before the
+  // Resource is ever reached, so the toggle has to cover both requests.
+  it("covers the Token request as well as the Resource request", async () => {
+    const { transport, requests } = fakeTransport(
+      ok('{"Token-JWT":"t"}'),
+      ok("{}"),
+    );
+
+    await sendResource(transport, readyToSend(), {
+      skipTlsVerification: true,
+    });
+
+    expect(requests.map((request) => request.skipTlsVerification)).toEqual([
+      true,
+      true,
+    ]);
   });
 });
 
@@ -222,33 +345,73 @@ describe("sendResource on a Zuul URL", () => {
       status: 200,
       durationMs: 12,
       body: "<lines/>",
+      token: null,
     });
   });
 });
 
-describe("a transport that fails outright", () => {
-  const failing = (message: string): Transport => async () => {
-    throw new Error(message);
+describe("a request that never completed", () => {
+  const TIMED_OUT = new TransportFailure(
+    "error sending request for url (https://api-ent1-openapi.cloudready-nonprod.cloud.si.orange.es/token): operation timed out",
+    { timedOut: true, failedToConnect: false },
+  );
+
+  const REFUSED = new TransportFailure(
+    "error sending request for url (https://api-ent1-openapi.cloudready-nonprod.cloud.si.orange.es/jwt/x): client error (Connect): tcp connect error: Connection refused (os error 61)",
+    { timedOut: false, failedToConnect: true },
+  );
+
+  const failing = (failure: unknown): Transport => async () => {
+    throw failure;
   };
 
-  it("reports the failure instead of rejecting, whichever request hit it", async () => {
-    expect(
-      await sendResource(failing("error sending request for url"), readyToSend()),
-    ).toEqual({
+  it("reports a diagnosis instead of rejecting, whichever request hit it", async () => {
+    const outcome = await sendResource(failing(TIMED_OUT), readyToSend());
+
+    expect(outcome).toEqual({
       kind: "network-error",
-      message: "error sending request for url",
+      failure: {
+        kind: "timeout",
+        message: expect.stringContaining("30 segundos"),
+        detail: TIMED_OUT.message,
+      },
+      token: null,
     });
   });
 
-  it("reports a failure of the Resource call the same way", async () => {
+  it("diagnoses a failure of the Resource call the same way", async () => {
     const transport: Transport = async (request) => {
       if (request.url.includes("/token")) return ok('{"Token-JWT":"t"}');
-      throw new Error("connection refused");
+      throw REFUSED;
     };
 
     expect(await sendResource(transport, readyToSend())).toEqual({
       kind: "network-error",
-      message: "connection refused",
+      failure: {
+        kind: "connection-refused",
+        message: expect.any(String),
+        detail: REFUSED.message,
+      },
+      token: "t",
+    });
+  });
+
+  // Nothing in the app throws a bare Error, but a transport that does must not
+  // take the send down with it.
+  it("survives a failure that carries no verdict at all", async () => {
+    const outcome = await sendResource(
+      failing(new Error("algo salió mal")),
+      readyToSend(),
+    );
+
+    expect(outcome).toEqual({
+      kind: "network-error",
+      failure: {
+        kind: "unknown",
+        message: expect.any(String),
+        detail: "algo salió mal",
+      },
+      token: null,
     });
   });
 });

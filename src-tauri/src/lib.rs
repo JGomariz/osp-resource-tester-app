@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::error::Error as StdError;
 use std::time::{Duration, Instant};
 
 #[derive(Debug, serde::Deserialize)]
@@ -21,20 +22,68 @@ pub struct HttpSendResponse {
     pub duration_ms: u64,
 }
 
+/// A request that never produced a response. What went wrong is reported, not
+/// interpreted: the whole cause chain plus the two verdicts the HTTP client
+/// makes itself. Naming the failure in the user's language is the TypeScript
+/// engine's job, and it needs these facts to do it.
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HttpSendError {
+    pub message: String,
+    pub timed_out: bool,
+    pub failed_to_connect: bool,
+}
+
+impl HttpSendError {
+    fn from_reqwest(error: reqwest::Error) -> Self {
+        Self {
+            timed_out: error.is_timeout(),
+            failed_to_connect: error.is_connect(),
+            message: cause_chain(&error),
+        }
+    }
+
+    /// A failure that never reached the HTTP client, so it has no verdict.
+    fn without_verdict(message: String) -> Self {
+        Self {
+            message,
+            timed_out: false,
+            failed_to_connect: false,
+        }
+    }
+}
+
+/// Every frame of the cause chain, outermost first. reqwest's own `Display`
+/// prints one frame — `error sending request for url (…)` — and stops, so
+/// without this the frontend never learns whether the certificate was refused,
+/// the host unknown or the port closed.
+fn cause_chain(error: &(dyn StdError + 'static)) -> String {
+    let mut frames = vec![error.to_string()];
+    let mut source = error.source();
+    while let Some(inner) = source {
+        frames.push(inner.to_string());
+        source = inner.source();
+    }
+    frames.join(": ")
+}
+
 /// Performs an HTTP request on behalf of the frontend. Pure transport: no
 /// domain logic lives here — the TypeScript engine decides what to send.
 /// Public so the smoke test can round-trip it; the Tauri command below is a
 /// private delegate (a `pub` command at the crate root trips E0255 via the
 /// `#[macro_export]` that `#[tauri::command]` adds for public functions).
-pub async fn send(request: HttpSendRequest) -> Result<HttpSendResponse, String> {
+pub async fn send(request: HttpSendRequest) -> Result<HttpSendResponse, HttpSendError> {
+    // Trusting invalid certificates is the user's session-scoped choice, made
+    // for non-production hosts whose certificates are broken.
     let client = reqwest::Client::builder()
         .danger_accept_invalid_certs(request.skip_tls_verification)
         .timeout(Duration::from_secs(30))
         .build()
-        .map_err(|error| error.to_string())?;
+        .map_err(HttpSendError::from_reqwest)?;
 
-    let method = reqwest::Method::from_bytes(request.method.as_bytes())
-        .map_err(|_| format!("invalid HTTP method: {}", request.method))?;
+    let method = reqwest::Method::from_bytes(request.method.as_bytes()).map_err(|_| {
+        HttpSendError::without_verdict(format!("invalid HTTP method: {}", request.method))
+    })?;
 
     let mut builder = client.request(method, &request.url);
     for (name, value) in &request.headers {
@@ -42,7 +91,7 @@ pub async fn send(request: HttpSendRequest) -> Result<HttpSendResponse, String> 
     }
 
     let started = Instant::now();
-    let response = builder.send().await.map_err(|error| error.to_string())?;
+    let response = builder.send().await.map_err(HttpSendError::from_reqwest)?;
 
     let status = response.status().as_u16();
     let mut headers: HashMap<String, String> = HashMap::new();
@@ -55,7 +104,7 @@ pub async fn send(request: HttpSendRequest) -> Result<HttpSendResponse, String> 
         entry.push_str(&value);
     }
 
-    let body = response.text().await.map_err(|error| error.to_string())?;
+    let body = response.text().await.map_err(HttpSendError::from_reqwest)?;
     let duration_ms = started.elapsed().as_millis() as u64;
 
     Ok(HttpSendResponse {
@@ -67,7 +116,7 @@ pub async fn send(request: HttpSendRequest) -> Result<HttpSendResponse, String> 
 }
 
 #[tauri::command]
-async fn http_send(request: HttpSendRequest) -> Result<HttpSendResponse, String> {
+async fn http_send(request: HttpSendRequest) -> Result<HttpSendResponse, HttpSendError> {
     send(request).await
 }
 
@@ -110,6 +159,22 @@ mod tests {
         assert_eq!(json["body"], "ok");
         assert_eq!(json["durationMs"], 7);
     }
+
+    #[test]
+    fn error_serializes_to_frontend_camel_case_json() {
+        let error = HttpSendError {
+            message: "operation timed out".to_string(),
+            timed_out: true,
+            failed_to_connect: false,
+        };
+
+        let json = serde_json::to_value(&error).expect("error should serialize");
+
+        assert_eq!(json["message"], "operation timed out");
+        assert_eq!(json["timedOut"], true);
+        assert_eq!(json["failedToConnect"], false);
+    }
+
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

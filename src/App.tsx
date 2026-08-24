@@ -8,6 +8,7 @@ import type {
 import {
   createTreeState,
   headerPanelFor,
+  lastTokenAfter,
   mainPanelView,
   responseViewFor,
   selectNode,
@@ -17,6 +18,7 @@ import {
 import { tauriTransport } from "./lib/tauriTransport";
 import { CatalogTree } from "./components/CatalogTree";
 import { MainPanel } from "./components/MainPanel";
+import { TokenInspector } from "./components/TokenInspector";
 
 const initialState = createTreeState(bundledCatalog());
 
@@ -26,6 +28,14 @@ export default function App() {
   const [outcome, setOutcome] = useState<SendOutcome | null>(null);
   const [view, setView] = useState<ResponseViewState | null>(null);
   const [isSending, setIsSending] = useState(false);
+  /**
+   * Session-scoped, both of them: they belong to this run of the app rather
+   * than to a Resource, so switching Resource leaves them alone and closing
+   * the app forgets them. Nothing is persisted, so the toggle is off on every
+   * launch by construction.
+   */
+  const [skipTlsVerification, setSkipTlsVerification] = useState(false);
+  const [lastToken, setLastToken] = useState<string | null>(null);
   /**
    * Identifies the send whose answer is still wanted. The tree stays clickable
    * during a send, so without this an in-flight answer could land under a
@@ -52,10 +62,13 @@ export default function App() {
     if (header === null) return;
     const thisSend = (currentSend.current += 1);
     setIsSending(true);
-    const result = await sendResource(tauriTransport, header);
+    const result = await sendResource(tauriTransport, header, {
+      skipTlsVerification,
+    });
     if (currentSend.current !== thisSend) return;
     setOutcome(result);
     setView(responseViewFor(result, view));
+    setLastToken(lastTokenAfter(result, lastToken));
     setIsSending(false);
   }
 
@@ -79,7 +92,12 @@ export default function App() {
             outcome={outcome}
             responseView={view}
             onResponseViewChange={setView}
+            skipTlsVerification={skipTlsVerification}
+            onSkipTlsVerificationChange={setSkipTlsVerification}
           />
+          {/* Outside the panel: the Token belongs to the session, so it stays
+              reachable whatever the tree selection is. */}
+          <TokenInspector token={lastToken} />
         </main>
       </div>
     </div>

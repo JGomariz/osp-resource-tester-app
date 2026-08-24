@@ -69,3 +69,32 @@ async fn http_send_round_trips_against_a_local_server() {
     );
     assert!(response.duration_ms < 30_000);
 }
+
+/// The engine diagnoses a failure from these two things, and reqwest's own
+/// `Display` gives neither: it names no cause at all. A closed port is the
+/// cheapest real failure to provoke.
+#[tokio::test]
+async fn a_failed_request_reports_its_cause_chain_and_the_clients_verdict() {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind failed");
+    let address = listener.local_addr().expect("no local addr");
+    drop(listener);
+
+    let error = send(HttpSendRequest {
+        method: "GET".to_string(),
+        url: format!("http://{address}/ping"),
+        headers: HashMap::new(),
+        skip_tls_verification: false,
+    })
+    .await
+    .expect_err("a closed port should not answer");
+
+    assert!(error.failed_to_connect, "message was: {}", error.message);
+    assert!(!error.timed_out, "message was: {}", error.message);
+    // The cause the outermost frame omits — this is the part that reaches the
+    // classification.
+    assert!(
+        error.message.contains("tcp connect error"),
+        "cause chain lost: {}",
+        error.message
+    );
+}

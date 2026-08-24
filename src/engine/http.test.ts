@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { HttpRequest, HttpResponse, Transport } from "./http";
-import { sendHttp } from "./http";
+import { sendHttp, transportFailureFrom } from "./http";
 
 function fakeTransport(scripted: HttpResponse): {
   transport: Transport;
@@ -57,5 +57,32 @@ describe("sendHttp", () => {
 
     expect(requests[0]?.headers).toEqual({});
     expect(requests[0]?.skipTlsVerification).toBe(false);
+  });
+});
+
+describe("transportFailureFrom", () => {
+  it("takes the message and both verdicts from what the Rust command reports", () => {
+    const failure = transportFailureFrom({
+      message:
+        "error sending request for url (https://api.example/token): operation timed out",
+      timedOut: true,
+      failedToConnect: false,
+    });
+
+    expect(failure.message).toBe(
+      "error sending request for url (https://api.example/token): operation timed out",
+    );
+    expect(failure.timedOut).toBe(true);
+    expect(failure.failedToConnect).toBe(false);
+  });
+
+  // A failure that never reached the HTTP client at all — the command missing,
+  // or arguments it could not read — arrives as a bare string.
+  it("keeps a rejection that is only a string, claiming no verdict", () => {
+    const failure = transportFailureFrom("comando http_send no encontrado");
+
+    expect(failure.message).toBe("comando http_send no encontrado");
+    expect(failure.timedOut).toBe(false);
+    expect(failure.failedToConnect).toBe(false);
   });
 });

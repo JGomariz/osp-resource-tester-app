@@ -58,12 +58,15 @@ export {
   setMode,
   setQuery,
 } from "./responseView";
-export type { SendOutcome, StatusClass } from "./sendFlow";
-export { sendResource, statusClass } from "./sendFlow";
+export type { NetworkFailure, NetworkFailureKind } from "./diagnostics";
+export { classifyNetworkFailure } from "./diagnostics";
+export type { SendOptions, SendOutcome, StatusClass } from "./sendFlow";
+export { lastTokenAfter, sendResource, statusClass } from "./sendFlow";
 export type {
   HttpRequest,
   HttpRequestInput,
   HttpResponse,
   Transport,
+  TransportVerdict,
 } from "./http";
-export { sendHttp } from "./http";
+export { TransportFailure, sendHttp, transportFailureFrom } from "./http";

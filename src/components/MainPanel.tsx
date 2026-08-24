@@ -16,6 +16,8 @@ interface MainPanelProps {
   outcome: SendOutcome | null;
   responseView: ResponseViewState | null;
   onResponseViewChange: (next: ResponseViewState) => void;
+  skipTlsVerification: boolean;
+  onSkipTlsVerificationChange: (next: boolean) => void;
 }
 
 /** Main panel. The engine has already decided which of the three states it is. */
@@ -28,6 +30,8 @@ export function MainPanel({
   outcome,
   responseView,
   onResponseViewChange,
+  skipTlsVerification,
+  onSkipTlsVerificationChange,
 }: MainPanelProps) {
   if (view.kind === "resource" && header !== null) {
     return (
@@ -38,6 +42,8 @@ export function MainPanel({
           onChange={onHeaderChange}
           onSend={onSend}
           isSending={isSending}
+          skipTlsVerification={skipTlsVerification}
+          onSkipTlsVerificationChange={onSkipTlsVerificationChange}
         />
         <ResponsePanel
           outcome={outcome}

@@ -14,6 +14,8 @@ interface HeaderPanelProps {
   onChange: (next: HeaderPanelState) => void;
   onSend: () => void;
   isSending: boolean;
+  skipTlsVerification: boolean;
+  onSkipTlsVerificationChange: (next: boolean) => void;
 }
 
 const GATEWAY_LABELS = {
@@ -28,6 +30,8 @@ export function HeaderPanel({
   onChange,
   onSend,
   isSending,
+  skipTlsVerification,
+  onSkipTlsVerificationChange,
 }: HeaderPanelProps) {
   const gateway = gatewayIndicator(state.url);
   const controls = paramControls(state);
@@ -126,6 +130,17 @@ export function HeaderPanel({
       </label>
 
       <div className="field-row field-row-actions">
+        <label className="toggle">
+          <input
+            type="checkbox"
+            checked={skipTlsVerification}
+            onChange={(event) =>
+              onSkipTlsVerificationChange(event.target.checked)
+            }
+          />
+          <span className="toggle-label">Omitir verificación TLS</span>
+        </label>
+
         <button
           type="button"
           className="send-button"

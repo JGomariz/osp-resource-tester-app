@@ -34,6 +34,11 @@
   --color-server-error: #b3261e;
   --color-server-error-surface: #fdeceb;
 
+  /* A request that never completed is not an HTTP response: slate, so it
+     cannot be mistaken for a status class. */
+  --color-network-failure: #3d4a5c;
+  --color-network-failure-surface: #eef1f5;
+
   /* Spacing */
   --space-1: 4px;
   --space-2: 8px;

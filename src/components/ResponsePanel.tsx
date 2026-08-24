@@ -26,12 +26,18 @@ function body({ outcome, isSending, view, onViewChange }: ResponsePanelProps) {
     );
   }
 
+  // A request that never completed has no status and no body, so it is shown
+  // as a diagnosis and never dressed up as a response.
   if (outcome.kind === "network-error") {
     return (
-      <>
-        <p className="response-error">No se pudo completar la petición.</p>
-        <pre className="response-body">{outcome.message}</pre>
-      </>
+      <div className="network-failure">
+        <p className="network-failure-title">Sin respuesta</p>
+        <p className="network-failure-message">{outcome.failure.message}</p>
+        <details className="network-failure-detail">
+          <summary>Detalle técnico</summary>
+          <pre className="response-body">{outcome.failure.detail}</pre>
+        </details>
+      </div>
     );
   }
 
