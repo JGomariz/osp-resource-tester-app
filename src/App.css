@@ -388,15 +388,17 @@ body {
 
 /* Diagnostics: session-scoped switches and the last Token */
 
+.app-footer {
+  flex-shrink: 0;
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
 .diagnostics-panel {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  margin-top: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  background: var(--color-surface);
+  gap: var(--space-2);
 }
 
 .checkbox-field {

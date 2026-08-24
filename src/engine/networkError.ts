@@ -37,12 +37,21 @@ export interface TransportFailure {
   readonly detail: string;
 }
 
+/**
+ * Mirrors `REQUEST_TIMEOUT` in `src-tauri/src/lib.rs`, which is what actually
+ * cuts the request off. Nothing enforces the pair — change both together.
+ */
+const TIMEOUT_SECONDS = 30;
+
 const EXPLANATIONS: Readonly<
   Record<NetworkErrorKind, { readonly message: string; readonly hint: string | null }>
 > = {
   timeout: {
-    message: "La petición ha superado el tiempo de espera de 30 segundos.",
-    hint: "El recurso puede estar caído o tardar más de lo normal en responder.",
+    message: `La petición ha superado el tiempo de espera de ${TIMEOUT_SECONDS} segundos.`,
+    // The VPN belongs here as much as in the unreachable hint: an internal
+    // host off the VPN usually swallows the packets rather than failing to
+    // resolve, so a timeout is the symptom the user actually sees.
+    hint: "Puede que el recurso esté caído, o que no estés conectado a la VPN corporativa.",
   },
   unreachable: {
     message: "No se ha podido alcanzar el host: no responde o su nombre no se resuelve.",
@@ -80,10 +89,17 @@ const MARKERS: readonly (readonly [
   [
     "tls",
     [
+      // `reqwest` here resolves to native-tls, so the words come from
+      // Security.framework on macOS and schannel on Windows, not from rustls.
+      // Both phrase a rejected chain with "certificate" or "not trusted".
       "certificate",
+      "not trusted",
+      "untrusted",
       "tls handshake",
       "handshake failure",
       "handshake failed",
+      "ssl error",
+      "tls error",
       "ssl routines",
       "wrong version number",
     ],
@@ -115,11 +131,20 @@ export function classifyNetworkError(error: unknown): NetworkError {
 function kindOf(failure: TransportFailure): NetworkErrorKind {
   if (failure.timedOut) return "timeout";
 
-  const detail = failure.detail.toLowerCase();
+  const detail = withoutUrls(failure.detail).toLowerCase();
   for (const [kind, markers] of MARKERS) {
     if (markers.some((marker) => detail.includes(marker))) return kind;
   }
   return "unknown";
+}
+
+/**
+ * Drops the request URL before matching. The chain quotes it, so a Resource
+ * path like `/certificates/v1/list`, or a host like `ssl-gateway`, would
+ * otherwise be read as the cause of the failure rather than its target.
+ */
+function withoutUrls(detail: string): string {
+  return detail.replace(/\bhttps?:\/\/\S+/gi, " ");
 }
 
 /** Reads a rejection of any shape for the two things classification needs. */

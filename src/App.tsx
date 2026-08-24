@@ -13,6 +13,7 @@ import {
 } from "./engine";
 import { tauriTransport } from "./lib/tauriTransport";
 import { CatalogTree } from "./components/CatalogTree";
+import { DiagnosticsPanel } from "./components/DiagnosticsPanel";
 import { MainPanel } from "./components/MainPanel";
 
 const initialState = createTreeState(bundledCatalog());
@@ -76,11 +77,15 @@ export default function App() {
             onSend={send}
             isSending={isSending}
             outcome={outcome}
-            session={session}
-            onSessionChange={setSession}
           />
         </main>
       </div>
+      {/* Outside the main panel on purpose: the switch and the Token belong to
+          the session, not to whatever happens to be selected, so they stay put
+          when the selection is a Service or an undefined Resource. */}
+      <footer className="app-footer">
+        <DiagnosticsPanel session={session} onChange={setSession} />
+      </footer>
     </div>
   );
 }

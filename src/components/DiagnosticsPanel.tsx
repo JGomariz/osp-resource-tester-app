@@ -31,6 +31,42 @@ export function DiagnosticsPanel({ session, onChange }: DiagnosticsPanelProps) {
   );
 }
 
+/**
+ * Copies through the Clipboard API where it exists, and through a throwaway
+ * selection where it does not.
+ *
+ * The fallback is not belt and braces: `navigator.clipboard` is only defined
+ * in a secure context, and while the dev server is `http://localhost:1420`,
+ * which counts as one, the packaged app is served from `tauri://localhost`,
+ * which is not guaranteed to. Without this, Copy could work all through
+ * development and be dead in the shipped binary.
+ */
+async function writeToClipboard(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    return copyBySelection(text);
+  }
+}
+
+function copyBySelection(text: string): boolean {
+  const field = document.createElement("textarea");
+  field.value = text;
+  field.setAttribute("readonly", "");
+  field.style.position = "fixed";
+  field.style.opacity = "0";
+  document.body.appendChild(field);
+  field.select();
+  try {
+    return document.execCommand("copy");
+  } catch {
+    return false;
+  } finally {
+    field.remove();
+  }
+}
+
 /** How the last copy attempt went; shown briefly, then forgotten. */
 type CopyState = "idle" | "copied" | "failed";
 
@@ -51,13 +87,7 @@ function TokenInspector({ token }: { token: string | null }) {
 
   async function copy() {
     if (token === null) return;
-    try {
-      await navigator.clipboard.writeText(token);
-      setCopyState("copied");
-    } catch {
-      // No clipboard, or permission refused. Saying so beats a dead button.
-      setCopyState("failed");
-    }
+    setCopyState((await writeToClipboard(token)) ? "copied" : "failed");
   }
 
   return (

@@ -334,24 +334,20 @@ describe("a transport that fails outright", () => {
     throw error;
   };
 
+  // The wording of each class is networkError.test.ts's business; what
+  // matters here is that a rejection becomes a classified outcome at all,
+  // carrying the transport's words through untouched.
   it("reports a classified failure instead of rejecting", async () => {
+    const detail = "error sending request for url (https://api-ent1…/token)";
+
     const { outcome } = await send(
-      failing({
-        timedOut: true,
-        detail: "error sending request for url (https://api-ent1…/token)",
-      }),
+      failing({ timedOut: true, detail }),
       readyToSend(),
     );
 
-    expect(outcome).toEqual({
-      kind: "network-error",
-      error: {
-        kind: "timeout",
-        message: "La petición ha superado el tiempo de espera de 30 segundos.",
-        hint: "El recurso puede estar caído o tardar más de lo normal en responder.",
-        detail: "error sending request for url (https://api-ent1…/token)",
-      },
-    });
+    const error = networkErrorOf(outcome);
+    expect(error.kind).toBe("timeout");
+    expect(error.detail).toBe(detail);
   });
 
   it("classifies a failure of the Resource call the same way", async () => {

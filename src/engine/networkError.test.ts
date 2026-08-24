@@ -22,6 +22,15 @@ describe("a request that timed out", () => {
         .kind,
     ).toBe("timeout");
   });
+
+  // An internal host off the VPN usually swallows the packets rather than
+  // failing to resolve, so this — not the DNS failure — is what the user
+  // actually sees when they forgot to connect.
+  it("names the VPN too, since a timeout is what an off-VPN host looks like", () => {
+    const error = classifyNetworkError(rejection("operation timed out"));
+
+    expect(error.hint).toContain("VPN");
+  });
 });
 
 describe("a host that cannot be reached", () => {
@@ -70,6 +79,10 @@ describe("a certificate that cannot be verified", () => {
     "certificate verify failed: self signed certificate in certificate chain",
     "unable to get local issuer certificate",
     "the handshake failed: sslv3 alert handshake failure",
+    // native-tls is what reqwest resolves to here, so these are the words the
+    // two shipping platforms actually produce.
+    "The certificate was not trusted. (os status -9807)",
+    "The certificate chain was issued by an authority that is not trusted. (os error -2146762487)",
   ];
 
   it.each(details)("is classified as a TLS failure: %s", (detail) => {
@@ -124,10 +137,10 @@ describe("the transport's own words", () => {
   });
 });
 
-describe("classification of the host name itself", () => {
-  // The detail carries the URL, so a host with "ssl" or "tls" in its name must
-  // not be mistaken for a certificate failure.
-  it("ignores TLS-looking words inside the URL", () => {
+describe("the URL the chain quotes", () => {
+  // The detail names the request's target as well as its cause, and the two
+  // must not be confused: the URL says where we were going, never what failed.
+  it("does not let a TLS-looking host name make a certificate failure", () => {
     const error = classifyNetworkError(
       rejection(
         "error sending request for url (https://ssl-tls-gateway.int.si.orange.es:9061/lines): tcp connect error: Connection refused (os error 61)",
@@ -135,6 +148,23 @@ describe("classification of the host name itself", () => {
     );
 
     expect(error.kind).toBe("refused");
+  });
+
+  it("does not let a Resource path make a certificate failure", () => {
+    const error = classifyNetworkError(
+      rejection(
+        "error sending request for url (https://zuul-uat.int.si.orange.es:9061/certificates/v1/list): tcp connect error: Connection refused (os error 61)",
+      ),
+    );
+
+    expect(error.kind).toBe("refused");
+  });
+
+  it("is still shown to the user, having only been ignored for classifying", () => {
+    const detail =
+      "error sending request for url (https://zuul-uat.int.si.orange.es:9061/certificates/v1/list): tcp connect error: Connection refused (os error 61)";
+
+    expect(classifyNetworkError(rejection(detail)).detail).toBe(detail);
   });
 });
 

@@ -1,6 +1,11 @@
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
+/// How long a request gets before it is cut off. The engine names this figure
+/// in the Spanish timeout message (`TIMEOUT_SECONDS` in
+/// `src/engine/networkError.ts`); nothing enforces the pair, so change both.
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
+
 #[derive(Debug, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HttpSendRequest {
@@ -72,7 +77,7 @@ fn describe(error: &(dyn std::error::Error + 'static)) -> String {
 pub async fn send(request: HttpSendRequest) -> Result<HttpSendResponse, HttpSendError> {
     let client = reqwest::Client::builder()
         .danger_accept_invalid_certs(request.skip_tls_verification)
-        .timeout(Duration::from_secs(30))
+        .timeout(REQUEST_TIMEOUT)
         .build()
         .map_err(HttpSendError::from_reqwest)?;
 
