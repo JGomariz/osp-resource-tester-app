@@ -1,19 +1,36 @@
-import type { HeaderPanelState, MainPanelView } from "../engine";
+import type { HeaderPanelState, MainPanelView, SendOutcome } from "../engine";
 import { HeaderPanel } from "./HeaderPanel";
+import { ResponsePanel } from "./ResponsePanel";
 
 interface MainPanelProps {
   view: MainPanelView;
   header: HeaderPanelState | null;
   onHeaderChange: (next: HeaderPanelState) => void;
+  onSend: () => void;
+  isSending: boolean;
+  outcome: SendOutcome | null;
 }
 
 /** Main panel. The engine has already decided which of the three states it is. */
-export function MainPanel({ view, header, onHeaderChange }: MainPanelProps) {
+export function MainPanel({
+  view,
+  header,
+  onHeaderChange,
+  onSend,
+  isSending,
+  outcome,
+}: MainPanelProps) {
   if (view.kind === "resource" && header !== null) {
     return (
       <section className="resource-panel">
         <h2 className="resource-name">{view.resource.name}</h2>
-        <HeaderPanel state={header} onChange={onHeaderChange} />
+        <HeaderPanel
+          state={header}
+          onChange={onHeaderChange}
+          onSend={onSend}
+          isSending={isSending}
+        />
+        <ResponsePanel outcome={outcome} isSending={isSending} />
       </section>
     );
   }

@@ -23,6 +23,14 @@
   --color-apigee: #0f6f66;
   --color-apigee-surface: #e4f2f0;
 
+  /* Response status, coloured by class */
+  --color-success: #1c6b3a;
+  --color-success-surface: #e6f3ea;
+  --color-client-error: #96500a;
+  --color-client-error-surface: #fdf0e2;
+  --color-server-error: #b3261e;
+  --color-server-error-surface: #fdeceb;
+
   /* Spacing */
   --space-1: 4px;
   --space-2: 8px;

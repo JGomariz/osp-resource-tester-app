@@ -12,6 +12,8 @@ import {
 interface HeaderPanelProps {
   state: HeaderPanelState;
   onChange: (next: HeaderPanelState) => void;
+  onSend: () => void;
+  isSending: boolean;
 }
 
 const GATEWAY_LABELS = {
@@ -21,7 +23,12 @@ const GATEWAY_LABELS = {
 } as const;
 
 /** Header panel. Every value and every recomposition comes from the engine. */
-export function HeaderPanel({ state, onChange }: HeaderPanelProps) {
+export function HeaderPanel({
+  state,
+  onChange,
+  onSend,
+  isSending,
+}: HeaderPanelProps) {
   const gateway = gatewayIndicator(state.url);
   const controls = paramControls(state);
   const changeParam = (name: string) => (value: string) =>
@@ -119,8 +126,13 @@ export function HeaderPanel({ state, onChange }: HeaderPanelProps) {
       </label>
 
       <div className="field-row field-row-actions">
-        <button type="button" className="send-button">
-          Enviar
+        <button
+          type="button"
+          className="send-button"
+          onClick={onSend}
+          disabled={isSending}
+        >
+          {isSending ? "Enviando…" : "Enviar"}
         </button>
       </div>
     </section>

@@ -40,6 +40,8 @@ export {
   setEnvironment,
   setParam,
 } from "./headerPanel";
+export type { SendOutcome, StatusClass } from "./sendFlow";
+export { sendResource, statusClass } from "./sendFlow";
 export type {
   HttpRequest,
   HttpRequestInput,
