@@ -24,8 +24,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["app"],
-    "shortDescription": "Probador de Recursos",
+    "shortDescription": "Comprueba recursos de backend en entornos no productivos",
     "longDescription": "Comprueba que los recursos de backend responden correctamente en entornos no productivos.",
     "icon": [
       "icons/32x32.png",

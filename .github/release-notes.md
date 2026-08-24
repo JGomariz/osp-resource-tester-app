@@ -20,13 +20,17 @@ Los dos sistemas lo avisan la primera vez, y solo la primera vez.
 ### macOS — Gatekeeper
 
 Aparece «no se puede abrir porque proviene de un desarrollador no
-identificado». Cualquiera de estas dos vías sirve:
+identificado». Cualquiera de estas vías sirve:
 
-- **Clic derecho** (o Ctrl+clic) sobre la aplicación → **Abrir**, y **Abrir**
-  otra vez en el diálogo que sale. Si tu versión de macOS ya no ofrece esa
-  opción, ábrela una vez con doble clic y ve a **Ajustes del Sistema →
-  Privacidad y seguridad**, donde aparecerá un botón **Abrir de todos modos**.
-- **Desde el Terminal**, quitando la marca de cuarentena:
+- **Ajustes del Sistema** (la vía que funciona en macOS actual): intenta
+  abrir la aplicación con doble clic, acepta el aviso, y ve a **Ajustes del
+  Sistema → Privacidad y seguridad**. Abajo aparecerá un botón **Abrir de
+  todos modos**; púlsalo y confirma.
+- **Clic derecho** (o Ctrl+clic) sobre la aplicación → **Abrir**. En macOS 15
+  y posteriores esta vía ya no basta para una aplicación sin notarizar, así
+  que si no ocurre nada, usa la anterior.
+- **Desde el Terminal**, quitando la marca de cuarentena, que evita el aviso
+  por completo:
 
   ```sh
   xattr -dr com.apple.quarantine /ruta/a/resource-tester.app
