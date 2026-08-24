@@ -1,0 +1,38 @@
+{
+  "nodes": [
+    {
+      "kind": "service",
+      "name": "CRMB2B",
+      "children": [
+        {
+          "kind": "resource",
+          "name": "Lines",
+          "method": "GET",
+          "gateway": "apigee",
+          "path": "/crbproductinventory/v1/lines",
+          "params": [
+            { "name": "docId", "kind": "text", "source": "documentId" },
+            {
+              "name": "productType",
+              "kind": "dropdown",
+              "options": ["fixed", "mobile"]
+            },
+            {
+              "name": "status",
+              "kind": "dropdown",
+              "options": ["active", "inactive"]
+            }
+          ]
+        },
+        { "kind": "resource", "name": "Customer Products" },
+        { "kind": "resource", "name": "ServiciosCentrex" }
+      ]
+    },
+    { "kind": "service", "name": "MDG" },
+    { "kind": "service", "name": "Line Usage B2B" },
+    { "kind": "service", "name": "Customer View B2B" },
+    { "kind": "service", "name": "Eunomia" },
+    { "kind": "service", "name": "Excalibur" },
+    { "kind": "service", "name": "Profiler" }
+  ]
+}
