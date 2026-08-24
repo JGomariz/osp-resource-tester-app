@@ -1,21 +1,21 @@
-import type { SendOutcome } from "../engine";
+import type { ResponseViewState, SendOutcome } from "../engine";
 import { statusClass } from "../engine";
+import { ResponseBody } from "./ResponseBody";
+import { ResponseToolbar } from "./ResponseToolbar";
 
 interface ResponsePanelProps {
   outcome: SendOutcome | null;
   isSending: boolean;
+  view: ResponseViewState | null;
+  onViewChange: (next: ResponseViewState) => void;
 }
 
 /** Response panel. The engine has already decided what kind of outcome this is. */
-export function ResponsePanel({ outcome, isSending }: ResponsePanelProps) {
-  return (
-    <section className="response-panel">
-      {body(outcome, isSending)}
-    </section>
-  );
+export function ResponsePanel(props: ResponsePanelProps) {
+  return <section className="response-panel">{body(props)}</section>;
 }
 
-function body(outcome: SendOutcome | null, isSending: boolean) {
+function body({ outcome, isSending, view, onViewChange }: ResponsePanelProps) {
   if (isSending) return <p className="empty-hint">Enviando…</p>;
 
   if (outcome === null) {
@@ -49,7 +49,15 @@ function body(outcome: SendOutcome | null, isSending: boolean) {
         </span>
         <span className="response-duration">{outcome.durationMs} ms</span>
       </div>
-      <pre className="response-body">{outcome.body}</pre>
+      {view === null ? (
+        // No viewer state yet: still show the body rather than imply a failure.
+        <pre className="response-body">{outcome.body}</pre>
+      ) : (
+        <>
+          <ResponseToolbar view={view} onChange={onViewChange} />
+          <ResponseBody view={view} />
+        </>
+      )}
     </>
   );
 }

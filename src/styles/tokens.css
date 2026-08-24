@@ -23,6 +23,9 @@
   --color-apigee: #0f6f66;
   --color-apigee-surface: #e4f2f0;
 
+  /* Search highlight; the active match uses the brand primary. */
+  --color-match: #ffe9a8;
+
   /* Response status, coloured by class */
   --color-success: #1c6b3a;
   --color-success-surface: #e6f3ea;

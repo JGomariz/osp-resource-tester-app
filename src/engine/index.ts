@@ -40,6 +40,24 @@ export {
   setEnvironment,
   setParam,
 } from "./headerPanel";
+export type {
+  BodyKind,
+  MatchRange,
+  ResponseViewState,
+  ViewMode,
+} from "./responseView";
+export {
+  createResponseViewState,
+  detectBodyKind,
+  displayedText,
+  matchCounter,
+  matches,
+  nextMatch,
+  previousMatch,
+  responseViewFor,
+  setMode,
+  setQuery,
+} from "./responseView";
 export type { SendOutcome, StatusClass } from "./sendFlow";
 export { sendResource, statusClass } from "./sendFlow";
 export type {

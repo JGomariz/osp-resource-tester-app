@@ -3,3 +3,6 @@ dist/
 target/
 *.log
 .DS_Store
+
+# Agent worktrees for parallel work; each is its own checkout.
+.claude/worktrees/

@@ -1,10 +1,15 @@
 import { useRef, useState } from "react";
 import { bundledCatalog } from "./catalog/bundledCatalog";
-import type { HeaderPanelState, SendOutcome } from "./engine";
+import type {
+  HeaderPanelState,
+  ResponseViewState,
+  SendOutcome,
+} from "./engine";
 import {
   createTreeState,
   headerPanelFor,
   mainPanelView,
+  responseViewFor,
   selectNode,
   sendResource,
   treeRows,
@@ -19,6 +24,7 @@ export default function App() {
   const [tree, setTree] = useState(initialState);
   const [header, setHeader] = useState<HeaderPanelState | null>(null);
   const [outcome, setOutcome] = useState<SendOutcome | null>(null);
+  const [view, setView] = useState<ResponseViewState | null>(null);
   const [isSending, setIsSending] = useState(false);
   /**
    * Identifies the send whose answer is still wanted. The tree stays clickable
@@ -37,6 +43,7 @@ export default function App() {
     if (nextHeader !== header) {
       currentSend.current += 1;
       setOutcome(null);
+      setView(null);
       setIsSending(false);
     }
   }
@@ -48,6 +55,7 @@ export default function App() {
     const result = await sendResource(tauriTransport, header);
     if (currentSend.current !== thisSend) return;
     setOutcome(result);
+    setView(responseViewFor(result, view));
     setIsSending(false);
   }
 
@@ -69,6 +77,8 @@ export default function App() {
             onSend={send}
             isSending={isSending}
             outcome={outcome}
+            responseView={view}
+            onResponseViewChange={setView}
           />
         </main>
       </div>
