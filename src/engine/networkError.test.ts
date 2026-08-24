@@ -138,20 +138,15 @@ describe("classification of the host name itself", () => {
   });
 });
 
-describe("every classification", () => {
-  it("speaks Spanish and ends its message as a sentence", () => {
-    const details = [
+describe("the four failures the user has to tell apart", () => {
+  it("each say something different, so the cause is readable off the message", () => {
+    const messages = [
       "operation timed out",
       "dns error: no such host",
       "Connection refused (os error 61)",
       "invalid peer certificate: UnknownIssuer",
-      "something else entirely",
-    ];
+    ].map((detail) => classifyNetworkError(rejection(detail)).message);
 
-    for (const detail of details) {
-      const { message } = classifyNetworkError(rejection(detail));
-      expect(message).not.toBe("");
-      expect(message.endsWith(".")).toBe(true);
-    }
+    expect(new Set(messages).size).toBe(4);
   });
 });

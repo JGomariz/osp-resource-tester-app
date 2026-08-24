@@ -8,11 +8,34 @@
 
 **Blocked by:** 04 — Send with Token flow and basic response.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Last Token visible in a collapsible area and copyable; empty state before any Apigee send
-- [ ] TLS toggle off by default, effective when on, and reset on relaunch
-- [ ] Timeout, DNS/unreachable, connection-refused and TLS failures each produce a distinct, plain-Spanish message
-- [ ] TLS failure message points at the toggle; unreachable-host message points at the VPN
-- [ ] Non-2xx responses render as normal responses, not as errors
-- [ ] Engine tests cover the error classification from transport failures
+- [x] Last Token visible in a collapsible area and copyable; empty state before any Apigee send
+- [x] TLS toggle off by default, effective when on, and reset on relaunch
+- [x] Timeout, DNS/unreachable, connection-refused and TLS failures each produce a distinct, plain-Spanish message
+- [x] TLS failure message points at the toggle; unreachable-host message points at the VPN
+- [x] Non-2xx responses render as normal responses, not as errors
+- [x] Engine tests cover the error classification from transport failures
+
+## Comments
+
+**2026-08-24 (agent):** Implemented test-first across `src/engine/networkError.ts` (24 tests), `src/engine/session.ts` (8 tests) and `src/engine/sendFlow.ts` (20 tests). Decisions:
+
+- **`reqwest`'s error text alone could not have carried this ticket.** Since 0.12 its `Display` prints only `error sending request for url (…)` — the cause is not in it. The old `map_err(|e| e.to_string())` therefore threw away the one thing that tells DNS from refused from TLS, and any classifier reading it would have answered "unknown" for every failure. `http_send` now rejects with `{timedOut, detail}`: `timed_out` is `reqwest`'s own verdict (the only judgement the engine genuinely cannot make, since a timeout and a dropped connection read alike), and `detail` is the error joined with every cause beneath it. **Which** failure that describes stays the engine's call, so the Rust layer still decides nothing.
+- **Classification is substring matching, ordered timeout → TLS → refused → unreachable.** The markers are deliberately phrases no host name could contain: bare `tls` or `ssl` would classify a perfectly ordinary refused connection to a host called `ssl-gateway.int.si.orange.es` as a certificate failure. There is a test pinning exactly that case.
+- **`certificate` is the TLS marker, not the rustls wording.** `reqwest` here resolves to `native-tls` (`hyper-tls` in `Cargo.lock`), so the text comes from Security.framework on macOS and schannel on Windows — different sentences, both containing "certificate". Matching only rustls's `invalid peer certificate: UnknownIssuer` would have worked on neither shipping platform.
+- **An unrecognised failure says so** rather than guessing, and every classification keeps the transport's own words under a collapsed "Detalle técnico". A marker that misses degrades to "No se pudo completar la petición." plus the raw text — never to a confident wrong answer.
+- **A `SessionState` holds what a relaunch forgets**: the skip-TLS switch and the last Token. It deliberately sits above `HeaderPanelState`, which is rebuilt per Resource — putting the switch there would have silently re-enabled certificate verification, and dropped the Token the user was about to copy, every time the selection changed. Reset-on-relaunch needs no code: nothing is persisted, so `createSession()` is both the initial state and the restored one.
+- **The switch reaches both requests.** A Token fetched over a loosened connection is no use if the Resource call then refuses the same certificate.
+- **`sendResource` now returns `{outcome, token}`.** The Token is reported beside the outcome rather than inside it because it is worth keeping even when the Resource call that followed it fell over — that send genuinely obtained a Token, and that is the one the user needs to debug with.
+- **"Omitir verificación TLS" is single-sourced** as `SKIP_TLS_LABEL` in `session.ts`. The TLS hint tells the user to go and switch on a control *by name*; two literals would let a rename leave the hint pointing at something that no longer exists.
+- **The refused hint avoids the word "servicio".** In this app a Service is a node in the tree, so "el servicio puede estar parado" reads as the user's selection being at fault. It now says "Puede que no haya nada escuchando en ese puerto." Caught in review against `CONTEXT.md`.
+- **A failure renders unlike a response on purpose**: no status code, no duration, no `<pre>` body — a bordered block headed "Sin respuesta", so it cannot be mistaken for something the backend actually said. Non-2xx answers keep going through the ordinary path, with tests at 404 and 500.
+
+**Deviation worth recording:** the spec says `http_send` "gets **one smoke test** and is otherwise trusted, **as it contains no logic**". This ticket added a cause-chain walk to that layer, so it added tests for it — four unit tests plus a second integration test that opens and drops a TCP port and drives a real refused connection through `reqwest`, asserting the cause survives into `detail`. That last one is the only proof that the classifier's markers match reality rather than an assumption about error strings, and it costs 20 ms. Flagged rather than widened silently.
+
+**Not proven end-to-end:** the DNS and TLS markers are matched against documented `hyper`/native-tls phrasings, not against a live failure — a DNS test depends on the network resolving `.invalid` correctly (corporate wildcard DNS would break it) and a TLS test needs a bad-certificate server. Refused and timeout are covered for real. The `unknown` fallback keeps a missed marker honest.
+
+**Vocabulary gap for `/domain-modeling`:** this ticket introduced two concepts `CONTEXT.md` does not define — **Session** (what the app remembers until relaunch: the TLS switch and the last Token) and **Diagnostics** (the panel grouping them). Both are load-bearing in code now; neither was invented lightly, but neither is in the glossary.
+
+Verified: `npm run typecheck`, `npm test` (110 tests, up from 74), `npm run build`, and `cargo test` (8 tests, up from 3). The eight new UI states — five failure classes, a 404 rendering as an ordinary response, and the Token inspector empty and populated — were checked as rendered markup via a throwaway harness, since the spec rules out committed UI component tests. Not checked: the webview→Rust IPC hop and the clipboard write, both of which need UI automation the repo does not have; the clipboard call is wrapped so a refusal reports "No se pudo copiar" rather than a dead button.

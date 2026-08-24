@@ -8,6 +8,8 @@
  * perfectly good answer and never reaches this module.
  */
 
+import { SKIP_TLS_LABEL } from "./session";
+
 export type NetworkErrorKind =
   | "timeout"
   | "unreachable"
@@ -48,11 +50,13 @@ const EXPLANATIONS: Readonly<
   },
   refused: {
     message: "El host ha rechazado la conexión.",
-    hint: "El servicio puede estar parado o escuchando en otro puerto.",
+    // Not "el servicio": in this app a Service is a node in the tree, and the
+    // user would read that as their selection being at fault.
+    hint: "Puede que no haya nada escuchando en ese puerto.",
   },
   tls: {
     message: "Ha fallado la verificación del certificado TLS.",
-    hint: "Si el entorno tiene un certificado no válido, activa «Omitir verificación TLS» y vuelve a enviar.",
+    hint: `Si el entorno tiene un certificado no válido, activa «${SKIP_TLS_LABEL}» y vuelve a enviar.`,
   },
   unknown: {
     message: "No se pudo completar la petición.",

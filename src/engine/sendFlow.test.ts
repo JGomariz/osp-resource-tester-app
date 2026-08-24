@@ -4,8 +4,10 @@ import type { DefinedResource } from "./catalogTree";
 import type { HeaderPanelState } from "./headerPanel";
 import { createHeaderPanelState, editUrl, setDocumentId } from "./headerPanel";
 import type { HttpRequest, HttpResponse, Transport } from "./http";
+import type { NetworkError } from "./networkError";
 import type { SessionState } from "./session";
 import { createSession, setSkipTlsVerification } from "./session";
+import type { SendOutcome } from "./sendFlow";
 import { sendResource, statusClass } from "./sendFlow";
 
 /** CRMB2B → Lines as the bundled Catalog defines it, built via the parser. */
@@ -69,6 +71,17 @@ function send(
 
 const LINES_URL =
   "https://api-ent1-openapi.cloudready-nonprod.cloud.si.orange.es/jwt/crbproductinventory/v1/lines?docId=12345678Z";
+
+const ZUUL_URL =
+  "https://zuul-uat.int.si.orange.es:9061/crbproductinventory/v1/lines";
+
+/** Narrows an outcome to the failure it must be, so tests can read into it. */
+function networkErrorOf(outcome: SendOutcome): NetworkError {
+  if (outcome.kind !== "network-error") {
+    throw new Error(`se esperaba un fallo de red, no ${outcome.kind}`);
+  }
+  return outcome.error;
+}
 
 describe("sendResource on an Apigee URL", () => {
   it("generates a Token first, with exactly the nine specified headers", async () => {
@@ -225,9 +238,6 @@ describe("a Token that cannot be generated", () => {
 });
 
 describe("sendResource on a Zuul URL", () => {
-  const ZUUL_URL =
-    "https://zuul-uat.int.si.orange.es:9061/crbproductinventory/v1/lines";
-
   it("sends the Resource alone, with no Token and no extra headers", async () => {
     const { transport, requests } = fakeTransport(ok("<lines/>"));
     const handEdited = editUrl(readyToSend(), ZUUL_URL);
@@ -263,12 +273,10 @@ describe("the Token a send obtained", () => {
 
   it("is none for a Zuul send, which never generates one", async () => {
     const { transport } = fakeTransport(ok("<lines/>"));
-    const handEdited = editUrl(
-      readyToSend(),
-      "https://zuul-uat.int.si.orange.es:9061/crbproductinventory/v1/lines",
-    );
 
-    expect((await send(transport, handEdited)).token).toBeNull();
+    const result = await send(transport, editUrl(readyToSend(), ZUUL_URL));
+
+    expect(result.token).toBeNull();
   });
 
   it("is none when the token endpoint refused to give one", async () => {
@@ -354,10 +362,9 @@ describe("a transport that fails outright", () => {
 
     const { outcome } = await send(transport, readyToSend());
 
-    expect(outcome.kind).toBe("network-error");
-    if (outcome.kind !== "network-error") throw new Error("inalcanzable");
-    expect(outcome.error.kind).toBe("tls");
-    expect(outcome.error.hint).toContain("Omitir verificación TLS");
+    const error = networkErrorOf(outcome);
+    expect(error.kind).toBe("tls");
+    expect(error.hint).toContain("Omitir verificación TLS");
   });
 
   it("still classifies a rejection that is a plain Error", async () => {
@@ -366,10 +373,9 @@ describe("a transport that fails outright", () => {
       readyToSend(),
     );
 
-    expect(outcome.kind).toBe("network-error");
-    if (outcome.kind !== "network-error") throw new Error("inalcanzable");
-    expect(outcome.error.kind).toBe("unreachable");
-    expect(outcome.error.hint).toContain("VPN");
+    const error = networkErrorOf(outcome);
+    expect(error.kind).toBe("unreachable");
+    expect(error.hint).toContain("VPN");
   });
 });
 

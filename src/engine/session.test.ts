@@ -17,10 +17,15 @@ describe("a session as the app launches", () => {
 });
 
 describe("the skip-TLS switch", () => {
-  it("turns on and off again", () => {
+  it("turns on", () => {
+    expect(
+      setSkipTlsVerification(createSession(), true).skipTlsVerification,
+    ).toBe(true);
+  });
+
+  it("turns off again", () => {
     const on = setSkipTlsVerification(createSession(), true);
 
-    expect(on.skipTlsVerification).toBe(true);
     expect(setSkipTlsVerification(on, false).skipTlsVerification).toBe(false);
   });
 

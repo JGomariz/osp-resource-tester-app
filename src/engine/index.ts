@@ -40,16 +40,13 @@ export {
   setEnvironment,
   setParam,
 } from "./headerPanel";
-export type {
-  NetworkError,
-  NetworkErrorKind,
-  TransportFailure,
-} from "./networkError";
+export type { NetworkError, NetworkErrorKind } from "./networkError";
 export { classifyNetworkError } from "./networkError";
 export type { SendOutcome, SendResult, StatusClass } from "./sendFlow";
 export { sendResource, statusClass } from "./sendFlow";
 export type { SessionState } from "./session";
 export {
+  SKIP_TLS_LABEL,
   createSession,
   rememberToken,
   setSkipTlsVerification,

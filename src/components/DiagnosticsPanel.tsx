@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { SessionState } from "../engine";
-import { setSkipTlsVerification } from "../engine";
+import { SKIP_TLS_LABEL, setSkipTlsVerification } from "../engine";
 
 interface DiagnosticsPanelProps {
   session: SessionState;
@@ -23,7 +23,7 @@ export function DiagnosticsPanel({ session, onChange }: DiagnosticsPanelProps) {
             onChange(setSkipTlsVerification(session, event.target.checked))
           }
         />
-        <span>Omitir verificación TLS</span>
+        <span>{SKIP_TLS_LABEL}</span>
       </label>
 
       <TokenInspector token={session.lastToken} />
