@@ -1,0 +1,36 @@
+/*
+ * Design tokens — MasOrange light look.
+ * Color values approximate the brand palette pending official values;
+ * later slices consume these variables instead of hard-coding.
+ */
+:root {
+  /* Color */
+  --color-primary: #ff7900;
+  --color-primary-hover: #e56d00;
+  --color-on-primary: #ffffff;
+  --color-background: #ffffff;
+  --color-surface: #faf9f8;
+  --color-border: #e8e6e3;
+  --color-text: #1a1a1a;
+  --color-text-muted: #6f6a64;
+
+  /* Spacing */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  /* Typography */
+  --font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, sans-serif;
+  --font-size-body: 14px;
+  --font-size-title: 17px;
+  --font-size-caption: 12px;
+
+  /* Shape and layout */
+  --radius: 6px;
+  --side-panel-width: 280px;
+}

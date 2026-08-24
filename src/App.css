@@ -1,0 +1,72 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-family);
+  font-size: var(--font-size-body);
+  color: var(--color-text);
+  background: var(--color-background);
+}
+
+#root {
+  height: 100vh;
+}
+
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.app-header {
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-background);
+  border-bottom: 3px solid var(--color-primary);
+}
+
+.app-title {
+  margin: 0;
+  font-size: var(--font-size-title);
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.app-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.side-panel {
+  width: var(--side-panel-width);
+  flex-shrink: 0;
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border-right: 1px solid var(--color-border);
+  overflow-y: auto;
+}
+
+.panel-title {
+  margin: 0 0 var(--space-3);
+  font-size: var(--font-size-caption);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+}
+
+.main-panel {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+  overflow-y: auto;
+}
+
+.empty-hint {
+  margin: 0;
+  color: var(--color-text-muted);
+}

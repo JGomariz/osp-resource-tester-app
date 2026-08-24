@@ -1,0 +1,3 @@
+# Tauri v2 as the application shell
+
+The app must ship as a single double-clickable executable for Windows and macOS (no installer). We chose Tauri v2 over Electron and Compose Multiplatform: Tauri produces small (~10 MB) truly single-file binaries and lets the UI be plain web tech, which suits the MasOrange-branded design. The trade-offs accepted: a Rust toolchain is required locally (not previously installed), and Windows binaries cannot be cross-built from macOS, so releases are built by GitHub Actions. Electron was rejected for its ~100 MB portable binaries; Compose/jpackage was rejected because its Windows output is an installer or folder, not a single file.
