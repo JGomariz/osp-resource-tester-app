@@ -1,4 +1,4 @@
-import type { SendOutcome } from "../engine";
+import type { NetworkError, SendOutcome } from "../engine";
 import { statusClass } from "../engine";
 
 interface ResponsePanelProps {
@@ -8,11 +8,7 @@ interface ResponsePanelProps {
 
 /** Response panel. The engine has already decided what kind of outcome this is. */
 export function ResponsePanel({ outcome, isSending }: ResponsePanelProps) {
-  return (
-    <section className="response-panel">
-      {body(outcome, isSending)}
-    </section>
-  );
+  return <section className="response-panel">{body(outcome, isSending)}</section>;
 }
 
 function body(outcome: SendOutcome | null, isSending: boolean) {
@@ -27,12 +23,7 @@ function body(outcome: SendOutcome | null, isSending: boolean) {
   }
 
   if (outcome.kind === "network-error") {
-    return (
-      <>
-        <p className="response-error">No se pudo completar la petición.</p>
-        <pre className="response-body">{outcome.message}</pre>
-      </>
-    );
+    return <NetworkErrorReport error={outcome.error} />;
   }
 
   return (
@@ -51,5 +42,25 @@ function body(outcome: SendOutcome | null, isSending: boolean) {
       </div>
       <pre className="response-body">{outcome.body}</pre>
     </>
+  );
+}
+
+/**
+ * A request that never got an answer. Deliberately unlike a response: no
+ * status code, no duration, nothing to mistake for something the backend said.
+ */
+function NetworkErrorReport({ error }: { error: NetworkError }) {
+  return (
+    <div className="network-error" role="alert">
+      <p className="network-error-eyebrow">Sin respuesta</p>
+      <p className="network-error-message">{error.message}</p>
+      {error.hint !== null && (
+        <p className="network-error-hint">{error.hint}</p>
+      )}
+      <details className="network-error-detail">
+        <summary>Detalle técnico</summary>
+        <pre className="response-body">{error.detail}</pre>
+      </details>
+    </div>
   );
 }

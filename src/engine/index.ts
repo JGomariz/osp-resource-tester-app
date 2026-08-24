@@ -40,8 +40,20 @@ export {
   setEnvironment,
   setParam,
 } from "./headerPanel";
-export type { SendOutcome, StatusClass } from "./sendFlow";
+export type {
+  NetworkError,
+  NetworkErrorKind,
+  TransportFailure,
+} from "./networkError";
+export { classifyNetworkError } from "./networkError";
+export type { SendOutcome, SendResult, StatusClass } from "./sendFlow";
 export { sendResource, statusClass } from "./sendFlow";
+export type { SessionState } from "./session";
+export {
+  createSession,
+  rememberToken,
+  setSkipTlsVerification,
+} from "./session";
 export type {
   HttpRequest,
   HttpRequestInput,

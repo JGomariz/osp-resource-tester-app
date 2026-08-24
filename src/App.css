@@ -334,3 +334,156 @@ body {
   margin: 0;
   color: var(--color-text-muted);
 }
+
+/* A request that never got an answer — deliberately unlike a response:
+   no status code, no duration, nothing the backend actually said. */
+
+.network-error {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid var(--color-server-error);
+  border-left-width: 4px;
+  border-radius: var(--radius);
+  background: var(--color-server-error-surface);
+}
+
+.network-error-eyebrow {
+  margin: 0;
+  font-size: var(--font-size-caption);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-server-error);
+}
+
+.network-error-message {
+  margin: 0;
+  font-weight: 600;
+}
+
+.network-error-hint {
+  margin: 0;
+}
+
+.network-error-detail {
+  font-size: var(--font-size-caption);
+  color: var(--color-text-muted);
+}
+
+.network-error-detail summary {
+  cursor: pointer;
+}
+
+.network-error-detail summary:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.network-error-detail .response-body {
+  margin-top: var(--space-2);
+  background: var(--color-background);
+}
+
+/* Diagnostics: session-scoped switches and the last Token */
+
+.diagnostics-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.checkbox-field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: fit-content;
+  cursor: pointer;
+}
+
+.checkbox-field input {
+  accent-color: var(--color-primary);
+}
+
+.checkbox-field input:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.token-inspector {
+  font-size: var(--font-size-caption);
+}
+
+.token-summary {
+  width: fit-content;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.token-summary:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.token-empty {
+  margin-top: var(--space-2);
+}
+
+.token-body {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.token-value {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-2);
+  max-height: 8em;
+  overflow: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-background);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  overflow-wrap: anywhere;
+}
+
+.token-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+.copy-button {
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-background);
+  font: inherit;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.copy-button:hover {
+  background: var(--color-hover);
+}
+
+.copy-button:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+
+.copy-feedback {
+  min-height: 1em;
+  color: var(--color-text-muted);
+}

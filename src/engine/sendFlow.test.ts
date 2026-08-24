@@ -4,6 +4,8 @@ import type { DefinedResource } from "./catalogTree";
 import type { HeaderPanelState } from "./headerPanel";
 import { createHeaderPanelState, editUrl, setDocumentId } from "./headerPanel";
 import type { HttpRequest, HttpResponse, Transport } from "./http";
+import type { SessionState } from "./session";
+import { createSession, setSkipTlsVerification } from "./session";
 import { sendResource, statusClass } from "./sendFlow";
 
 /** CRMB2B → Lines as the bundled Catalog defines it, built via the parser. */
@@ -56,6 +58,15 @@ function readyToSend(): HeaderPanelState {
   return setDocumentId(createHeaderPanelState(lines()), "12345678Z");
 }
 
+/** A send under a freshly launched session, which is the common case. */
+function send(
+  transport: Transport,
+  state: HeaderPanelState,
+  session: SessionState = createSession(),
+) {
+  return sendResource(transport, state, session);
+}
+
 const LINES_URL =
   "https://api-ent1-openapi.cloudready-nonprod.cloud.si.orange.es/jwt/crbproductinventory/v1/lines?docId=12345678Z";
 
@@ -66,7 +77,7 @@ describe("sendResource on an Apigee URL", () => {
       ok('{"lines":[]}'),
     );
 
-    await sendResource(transport, readyToSend());
+    await send(transport, readyToSend());
 
     expect(requests[0]).toEqual({
       method: "GET",
@@ -92,7 +103,7 @@ describe("sendResource on an Apigee URL", () => {
       ok('{"lines":[]}'),
     );
 
-    await sendResource(transport, readyToSend());
+    await send(transport, readyToSend());
 
     expect(requests).toHaveLength(2);
     expect(requests[1]).toEqual({
@@ -111,7 +122,7 @@ describe("sendResource on an Apigee URL", () => {
       durationMs: 137,
     });
 
-    expect(await sendResource(transport, readyToSend())).toEqual({
+    expect((await send(transport, readyToSend())).outcome).toEqual({
       kind: "response",
       status: 200,
       durationMs: 137,
@@ -125,11 +136,25 @@ describe("sendResource on an Apigee URL", () => {
       ok('{"error":"no such customer"}', 404),
     );
 
-    expect(await sendResource(transport, readyToSend())).toEqual({
+    expect((await send(transport, readyToSend())).outcome).toEqual({
       kind: "response",
       status: 404,
       durationMs: 12,
       body: '{"error":"no such customer"}',
+    });
+  });
+
+  it("reports a 5xx Resource answer as a response too", async () => {
+    const { transport } = fakeTransport(
+      ok('{"Token-JWT":"t"}'),
+      ok("Internal Server Error", 500),
+    );
+
+    expect((await send(transport, readyToSend())).outcome).toEqual({
+      kind: "response",
+      status: 500,
+      durationMs: 12,
+      body: "Internal Server Error",
     });
   });
 });
@@ -140,7 +165,7 @@ describe("a Token that cannot be generated", () => {
       ok('{"error":"unauthorized"}', 401),
     );
 
-    const outcome = await sendResource(transport, readyToSend());
+    const { outcome } = await send(transport, readyToSend());
 
     expect(requests).toHaveLength(1);
     expect(requests[0]?.url).toContain("/token");
@@ -155,7 +180,7 @@ describe("a Token that cannot be generated", () => {
   it("treats a 200 with no Token-JWT field as a failure", async () => {
     const { transport, requests } = fakeTransport(ok('{"other":"field"}'));
 
-    const outcome = await sendResource(transport, readyToSend());
+    const { outcome } = await send(transport, readyToSend());
 
     expect(requests).toHaveLength(1);
     expect(outcome).toEqual({
@@ -171,7 +196,7 @@ describe("a Token that cannot be generated", () => {
       ok('{"Token-JWT":"stale.token"}', 403),
     );
 
-    const outcome = await sendResource(transport, readyToSend());
+    const { outcome } = await send(transport, readyToSend());
 
     expect(requests).toHaveLength(1);
     expect(outcome).toEqual({
@@ -187,7 +212,7 @@ describe("a Token that cannot be generated", () => {
       ok("<html>Gateway Timeout</html>"),
     );
 
-    const outcome = await sendResource(transport, readyToSend());
+    const { outcome } = await send(transport, readyToSend());
 
     expect(requests).toHaveLength(1);
     expect(outcome).toEqual({
@@ -200,19 +225,19 @@ describe("a Token that cannot be generated", () => {
 });
 
 describe("sendResource on a Zuul URL", () => {
+  const ZUUL_URL =
+    "https://zuul-uat.int.si.orange.es:9061/crbproductinventory/v1/lines";
+
   it("sends the Resource alone, with no Token and no extra headers", async () => {
     const { transport, requests } = fakeTransport(ok("<lines/>"));
-    const handEdited = editUrl(
-      readyToSend(),
-      "https://zuul-uat.int.si.orange.es:9061/crbproductinventory/v1/lines",
-    );
+    const handEdited = editUrl(readyToSend(), ZUUL_URL);
 
-    const outcome = await sendResource(transport, handEdited);
+    const { outcome } = await send(transport, handEdited);
 
     expect(requests).toEqual([
       {
         method: "GET",
-        url: "https://zuul-uat.int.si.orange.es:9061/crbproductinventory/v1/lines",
+        url: ZUUL_URL,
         headers: {},
         skipTlsVerification: false,
       },
@@ -226,30 +251,125 @@ describe("sendResource on a Zuul URL", () => {
   });
 });
 
+describe("the Token a send obtained", () => {
+  it("comes back with the outcome, so the inspector can show it", async () => {
+    const { transport } = fakeTransport(
+      ok('{"Token-JWT":"abc.def.ghi"}'),
+      ok('{"lines":[]}'),
+    );
+
+    expect((await send(transport, readyToSend())).token).toBe("abc.def.ghi");
+  });
+
+  it("is none for a Zuul send, which never generates one", async () => {
+    const { transport } = fakeTransport(ok("<lines/>"));
+    const handEdited = editUrl(
+      readyToSend(),
+      "https://zuul-uat.int.si.orange.es:9061/crbproductinventory/v1/lines",
+    );
+
+    expect((await send(transport, handEdited)).token).toBeNull();
+  });
+
+  it("is none when the token endpoint refused to give one", async () => {
+    const { transport } = fakeTransport(ok('{"error":"unauthorized"}', 401));
+
+    expect((await send(transport, readyToSend())).token).toBeNull();
+  });
+
+  it("survives a Resource call that then failed, since it was still obtained", async () => {
+    const transport: Transport = async (request) => {
+      if (request.url.includes("/token")) return ok('{"Token-JWT":"abc.def"}');
+      throw new Error("tcp connect error: Connection refused (os error 61)");
+    };
+
+    const result = await send(transport, readyToSend());
+
+    expect(result.token).toBe("abc.def");
+    expect(result.outcome.kind).toBe("network-error");
+  });
+});
+
+describe("the session's skip-TLS switch", () => {
+  it("is off for a freshly launched session, so certificates are verified", async () => {
+    const { transport, requests } = fakeTransport(
+      ok('{"Token-JWT":"t"}'),
+      ok('{"lines":[]}'),
+    );
+
+    await sendResource(transport, readyToSend(), createSession());
+
+    expect(requests.map((request) => request.skipTlsVerification)).toEqual([
+      false,
+      false,
+    ]);
+  });
+
+  it("reaches the Token request and the Resource request alike when on", async () => {
+    const { transport, requests } = fakeTransport(
+      ok('{"Token-JWT":"t"}'),
+      ok('{"lines":[]}'),
+    );
+    const session = setSkipTlsVerification(createSession(), true);
+
+    await sendResource(transport, readyToSend(), session);
+
+    expect(requests.map((request) => request.skipTlsVerification)).toEqual([
+      true,
+      true,
+    ]);
+  });
+});
+
 describe("a transport that fails outright", () => {
-  const failing = (message: string): Transport => async () => {
-    throw new Error(message);
+  const failing = (error: unknown): Transport => async () => {
+    throw error;
   };
 
-  it("reports the failure instead of rejecting, whichever request hit it", async () => {
-    expect(
-      await sendResource(failing("error sending request for url"), readyToSend()),
-    ).toEqual({
+  it("reports a classified failure instead of rejecting", async () => {
+    const { outcome } = await send(
+      failing({
+        timedOut: true,
+        detail: "error sending request for url (https://api-ent1…/token)",
+      }),
+      readyToSend(),
+    );
+
+    expect(outcome).toEqual({
       kind: "network-error",
-      message: "error sending request for url",
+      error: {
+        kind: "timeout",
+        message: "La petición ha superado el tiempo de espera de 30 segundos.",
+        hint: "El recurso puede estar caído o tardar más de lo normal en responder.",
+        detail: "error sending request for url (https://api-ent1…/token)",
+      },
     });
   });
 
-  it("reports a failure of the Resource call the same way", async () => {
+  it("classifies a failure of the Resource call the same way", async () => {
     const transport: Transport = async (request) => {
       if (request.url.includes("/token")) return ok('{"Token-JWT":"t"}');
-      throw new Error("connection refused");
+      throw { timedOut: false, detail: "invalid peer certificate: UnknownIssuer" };
     };
 
-    expect(await sendResource(transport, readyToSend())).toEqual({
-      kind: "network-error",
-      message: "connection refused",
-    });
+    const { outcome } = await send(transport, readyToSend());
+
+    expect(outcome.kind).toBe("network-error");
+    if (outcome.kind !== "network-error") throw new Error("inalcanzable");
+    expect(outcome.error.kind).toBe("tls");
+    expect(outcome.error.hint).toContain("Omitir verificación TLS");
+  });
+
+  it("still classifies a rejection that is a plain Error", async () => {
+    const { outcome } = await send(
+      failing(new Error("dns error: failed to lookup address information")),
+      readyToSend(),
+    );
+
+    expect(outcome.kind).toBe("network-error");
+    if (outcome.kind !== "network-error") throw new Error("inalcanzable");
+    expect(outcome.error.kind).toBe("unreachable");
+    expect(outcome.error.hint).toContain("VPN");
   });
 });
 

@@ -2,9 +2,11 @@ import { useRef, useState } from "react";
 import { bundledCatalog } from "./catalog/bundledCatalog";
 import type { HeaderPanelState, SendOutcome } from "./engine";
 import {
+  createSession,
   createTreeState,
   headerPanelFor,
   mainPanelView,
+  rememberToken,
   selectNode,
   sendResource,
   treeRows,
@@ -20,6 +22,8 @@ export default function App() {
   const [header, setHeader] = useState<HeaderPanelState | null>(null);
   const [outcome, setOutcome] = useState<SendOutcome | null>(null);
   const [isSending, setIsSending] = useState(false);
+  /** Lives above the Resource, and is never persisted: a relaunch resets it. */
+  const [session, setSession] = useState(createSession);
   /**
    * Identifies the send whose answer is still wanted. The tree stays clickable
    * during a send, so without this an in-flight answer could land under a
@@ -45,9 +49,12 @@ export default function App() {
     if (header === null) return;
     const thisSend = (currentSend.current += 1);
     setIsSending(true);
-    const result = await sendResource(tauriTransport, header);
+    const result = await sendResource(tauriTransport, header, session);
     if (currentSend.current !== thisSend) return;
-    setOutcome(result);
+    setOutcome(result.outcome);
+    // Folded into whatever the session is by now, so a TLS toggle flipped
+    // mid-send is not undone by the answer landing.
+    setSession((current) => rememberToken(current, result.token));
     setIsSending(false);
   }
 
@@ -69,6 +76,8 @@ export default function App() {
             onSend={send}
             isSending={isSending}
             outcome={outcome}
+            session={session}
+            onSessionChange={setSession}
           />
         </main>
       </div>

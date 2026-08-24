@@ -4,6 +4,35 @@ use std::net::TcpListener;
 
 use resource_tester_lib::{send, HttpSendRequest};
 
+/// The engine classifies failures by reading `detail`, so the words it looks
+/// for have to survive a real `reqwest` round trip — not just the flattening
+/// unit test. A refused connection is the one failure reproducible locally
+/// without a network, a certificate or a 30-second wait.
+#[tokio::test]
+async fn a_refused_connection_says_so_in_the_detail() {
+    // Bound and dropped, so the port is free and nothing is listening on it.
+    let address = TcpListener::bind("127.0.0.1:0")
+        .expect("bind failed")
+        .local_addr()
+        .expect("no local addr");
+
+    let error = send(HttpSendRequest {
+        method: "GET".to_string(),
+        url: format!("http://{address}/ping"),
+        headers: HashMap::new(),
+        skip_tls_verification: false,
+    })
+    .await
+    .expect_err("a closed port should not answer");
+
+    assert!(!error.timed_out, "not a timeout: {}", error.detail);
+    assert!(
+        error.detail.to_lowercase().contains("connection refused"),
+        "the cause reqwest's Display drops was lost: {}",
+        error.detail
+    );
+}
+
 /// Minimal HTTP/1.1 server: accepts one connection, captures the raw request
 /// (a GET ends with the blank line after the headers) and replies with a
 /// canned JSON response.
