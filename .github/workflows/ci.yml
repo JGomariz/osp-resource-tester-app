@@ -34,23 +34,21 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Cache cargo
+      # Only the downloaded crates, never `src-tauri/target` — the same rule
+      # release.yml follows, and for the same reason: a target directory runs
+      # to gigabytes, and a fresh entry per push would spend the 10 GB
+      # repo-wide budget evicting everything else to save a compile. Keyed on
+      # the lockfile with no commit component, because the crates for a given
+      # lockfile do not change: an exact hit every time is the point.
+      - name: Cache the crate registry
         uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry/index
             ~/.cargo/registry/cache
             ~/.cargo/git/db
-            src-tauri/target
-          # The sha makes every run a miss, so the cache is re-saved with
-          # whatever the build just produced; restore-keys then supplies the
-          # previous run's directory to build on top of. Keyed on Cargo.lock
-          # alone it would be an exact hit forever, freezing target/ at
-          # whatever the first run happened to leave there.
-          key: cargo-ci-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}-${{ github.sha }}
-          restore-keys: |
-            cargo-ci-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}-
-            cargo-ci-${{ runner.os }}-
+          key: crates-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: crates-${{ runner.os }}-
       - name: Rust tests
         working-directory: src-tauri
         run: cargo test
@@ -73,18 +71,17 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
-      - name: Cache cargo
+      # Registry only. This job does a *release* build, which is exactly the
+      # case release.yml refuses to cache the target directory for.
+      - name: Cache the crate registry
         uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry/index
             ~/.cargo/registry/cache
             ~/.cargo/git/db
-            src-tauri/target
-          key: cargo-ci-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}-${{ github.sha }}
-          restore-keys: |
-            cargo-ci-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}-
-            cargo-ci-${{ runner.os }}-
+          key: crates-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: crates-${{ runner.os }}-
       - run: npm ci
       - name: Rust tests
         working-directory: src-tauri
