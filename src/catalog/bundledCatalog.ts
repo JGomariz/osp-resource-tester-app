@@ -1,4 +1,4 @@
-import type { Catalog } from "../engine";
+import type { BundledCatalog, Catalog } from "../engine";
 import { parseCatalog } from "../engine";
 import defaultCatalogJson from "./default-catalog.json";
 
@@ -16,4 +16,16 @@ export function bundledCatalog(): Catalog {
     );
   }
   return result.catalog;
+}
+
+/**
+ * The bundled Catalog together with the text to seed the override with on a
+ * first run. Re-serialised rather than read as bytes so what lands on disk is
+ * guaranteed to parse, and indented because a person is going to edit it.
+ */
+export function bundledCatalogSource(): BundledCatalog {
+  return {
+    catalog: bundledCatalog(),
+    text: `${JSON.stringify(defaultCatalogJson, null, 2)}\n`,
+  };
 }

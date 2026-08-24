@@ -40,12 +40,20 @@ body {
 }
 
 .side-panel {
+  display: flex;
+  flex-direction: column;
   width: var(--side-panel-width);
   flex-shrink: 0;
   padding: var(--space-4);
   background: var(--color-surface);
   border-right: 1px solid var(--color-border);
   overflow-y: auto;
+}
+
+/* Pushes "Abrir catálogo" to the foot of the panel, under however much tree
+   there happens to be. */
+.side-panel .tree {
+  flex: 1;
 }
 
 .panel-title {
@@ -424,4 +432,64 @@ body {
 .empty-hint {
   margin: 0;
   color: var(--color-text-muted);
+}
+
+/* Catalog override */
+
+.catalog-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-client-error);
+  background: var(--color-client-error-surface);
+  color: var(--color-client-error);
+}
+
+.catalog-warning-text {
+  flex: 1;
+  margin: 0;
+}
+
+.catalog-warning-dismiss {
+  flex-shrink: 0;
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  font: inherit;
+  font-size: var(--font-size-title);
+  line-height: 1;
+  color: inherit;
+  cursor: pointer;
+}
+
+.catalog-warning-dismiss:hover {
+  background: var(--color-hover);
+}
+
+.catalog-warning-dismiss:focus-visible {
+  outline: 2px solid var(--color-client-error);
+  outline-offset: 1px;
+}
+
+.catalog-button {
+  margin-top: var(--space-3);
+  padding: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-background);
+  font: inherit;
+  font-size: var(--font-size-caption);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.catalog-button:hover {
+  background: var(--color-hover);
+}
+
+.catalog-button:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
 }
