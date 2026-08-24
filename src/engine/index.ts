@@ -24,6 +24,23 @@ export {
   treeRows,
 } from "./catalogTree";
 export type {
+  Environment,
+  GatewayIndicator,
+  HeaderPanelState,
+  ParamControl,
+} from "./headerPanel";
+export {
+  ENVIRONMENTS,
+  createHeaderPanelState,
+  editUrl,
+  gatewayIndicator,
+  headerPanelFor,
+  paramControls,
+  setDocumentId,
+  setEnvironment,
+  setParam,
+} from "./headerPanel";
+export type {
   HttpRequest,
   HttpRequestInput,
   HttpResponse,

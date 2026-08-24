@@ -1,19 +1,19 @@
-import type { MainPanelView } from "../engine";
+import type { HeaderPanelState, MainPanelView } from "../engine";
+import { HeaderPanel } from "./HeaderPanel";
 
 interface MainPanelProps {
   view: MainPanelView;
+  header: HeaderPanelState | null;
+  onHeaderChange: (next: HeaderPanelState) => void;
 }
 
 /** Main panel. The engine has already decided which of the three states it is. */
-export function MainPanel({ view }: MainPanelProps) {
-  if (view.kind === "resource") {
+export function MainPanel({ view, header, onHeaderChange }: MainPanelProps) {
+  if (view.kind === "resource" && header !== null) {
     return (
       <section className="resource-panel">
         <h2 className="resource-name">{view.resource.name}</h2>
-        <p className="panel-placeholder">
-          Aquí irá el panel de cabecera: entorno, Document ID, parámetros, URL
-          final y el botón de envío.
-        </p>
+        <HeaderPanel state={header} onChange={onHeaderChange} />
       </section>
     );
   }

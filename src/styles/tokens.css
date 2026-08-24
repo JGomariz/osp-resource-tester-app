@@ -16,6 +16,13 @@
   --color-text: #1a1a1a;
   --color-text-muted: #6f6a64;
 
+  /* Gateway indicator — one distinct hue per Gateway, neither of them the
+     brand orange, so the indicator never reads as a primary action. */
+  --color-zuul: #5b3ba8;
+  --color-zuul-surface: #f2edfc;
+  --color-apigee: #0f6f66;
+  --color-apigee-surface: #e4f2f0;
+
   /* Spacing */
   --space-1: 4px;
   --space-2: 8px;

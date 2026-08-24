@@ -147,13 +147,107 @@ body {
   font-size: var(--font-size-title);
 }
 
-.panel-placeholder {
-  margin: 0;
+/* Header panel */
+
+.header-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
   padding: var(--space-4);
-  border: 1px dashed var(--color-border);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius);
   background: var(--color-surface);
+}
+
+.field-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.field-row-actions {
+  justify-content: flex-end;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 12ch;
+}
+
+.field-wide {
+  width: 100%;
+}
+
+.field-label {
+  font-size: var(--font-size-caption);
+  font-weight: 600;
   color: var(--color-text-muted);
+}
+
+.field-control {
+  padding: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-background);
+  font: inherit;
+  color: var(--color-text);
+}
+
+.field-control:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -1px;
+}
+
+.url-field {
+  width: 100%;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: var(--font-size-caption);
+}
+
+.gateway-indicator {
+  padding: var(--space-2);
+  border: 1px solid currentColor;
+  border-radius: var(--radius);
+  font-weight: 600;
+  text-align: center;
+}
+
+.gateway-indicator.is-zuul {
+  color: var(--color-zuul);
+  background: var(--color-zuul-surface);
+}
+
+.gateway-indicator.is-apigee {
+  color: var(--color-apigee);
+  background: var(--color-apigee-surface);
+}
+
+.gateway-indicator.is-neutral {
+  color: var(--color-text-muted);
+  background: var(--color-background);
+  font-weight: 400;
+}
+
+.send-button {
+  padding: var(--space-2) var(--space-5);
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--color-primary);
+  font: inherit;
+  font-weight: 600;
+  color: var(--color-on-primary);
+  cursor: pointer;
+}
+
+.send-button:hover {
+  background: var(--color-primary-hover);
+}
+
+.send-button:focus-visible {
+  outline: 2px solid var(--color-text);
+  outline-offset: 2px;
 }
 
 .empty-hint {
