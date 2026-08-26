@@ -89,7 +89,8 @@
           "kind": "resource",
           "name": "ServiciosCentrex"
         }
-    ,
+      ]
+    },
     {
       "kind": "service",
       "name": "MDG"
@@ -114,7 +115,5 @@
       "kind": "service",
       "name": "Profiler"
     }
-  ]
-}
   ]
 }

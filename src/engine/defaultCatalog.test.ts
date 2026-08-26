@@ -30,11 +30,14 @@ describe("the bundled default Catalog", () => {
     expect(reparsed.catalog).toEqual(catalog);
   });
 
-  it("holds the tree the spec asks for, CRMB2B first with its three Resources", () => {
+  // Depth matters as much as order here: a misplaced bracket in the JSON can
+  // turn the Services that follow CRMB2B into its children and still parse.
+  it("holds the tree the spec asks for, CRMB2B first with its four Resources", () => {
     const rows = treeRows(createTreeState(defaultCatalog()));
 
     expect(rows.map((row) => `${"  ".repeat(row.depth)}${row.name}`)).toEqual([
       "CRMB2B",
+      "  Products",
       "  Lines",
       "  Customer Products",
       "  ServiciosCentrex",
@@ -47,18 +50,23 @@ describe("the bundled default Catalog", () => {
     ]);
   });
 
-  it("leaves every node except CRMB2B → Lines waiting to be configured", () => {
+  it("leaves every node except the three CRMB2B Resources waiting to be configured", () => {
     const rows = treeRows(createTreeState(defaultCatalog()));
 
     expect(
       rows.filter((row) => row.isDefined).map((row) => row.id),
-    ).toEqual(["CRMB2B", "CRMB2B/Lines"]);
+    ).toEqual([
+      "CRMB2B",
+      "CRMB2B/Products",
+      "CRMB2B/Lines",
+      "CRMB2B/Customer Products",
+    ]);
   });
 
   it("defines Lines as the spec does: GET via Apigee with docId, productType and status", () => {
     const crmb2b = defaultCatalog().nodes[0];
     if (crmb2b?.kind !== "service") throw new Error("CRMB2B debe ser servicio");
-    const lines = crmb2b.children[0];
+    const lines = crmb2b.children.find((child) => child.name === "Lines");
 
     expect(lines).toEqual({
       kind: "resource",
@@ -86,7 +94,7 @@ describe("the bundled default Catalog", () => {
           {
             name: "status",
             kind: "dropdown",
-            options: ["active", "inactive"],
+            options: ["active", "suspended", "active,suspended"],
             source: null,
             omitWhenEmpty: true,
           },
