@@ -6,33 +6,115 @@
       "children": [
         {
           "kind": "resource",
+          "name": "Products",
+          "method": "GET",
+          "gateway": "apigee",
+          "path": "/crbproductinventory/v1/product",
+          "params": [
+            {
+              "name": "relatedParty.partyOrPartyRole.organizationIdentification.identificationId",
+              "kind": "text",
+              "source": "documentId"
+            },
+            {
+              "name": "relatedParty.partyOrPartyRole.organizationIdentification.identificationType",
+              "kind": "dropdown",
+              "options": ["documento"]
+            }
+          ]
+        },
+        {
+          "kind": "resource",
           "name": "Lines",
           "method": "GET",
           "gateway": "apigee",
           "path": "/crbproductinventory/v1/lines",
           "params": [
-            { "name": "docId", "kind": "text", "source": "documentId" },
+            {
+              "name": "docId",
+              "kind": "text",
+              "source": "documentId"
+            },
             {
               "name": "productType",
               "kind": "dropdown",
-              "options": ["fixed", "mobile"]
+              "options": [
+                "fixed",
+                "mobile"
+              ]
             },
             {
               "name": "status",
               "kind": "dropdown",
-              "options": ["active", "inactive"]
+              "options": [
+                "active",
+                "suspended",
+                "active,suspended"
+              ]
             }
           ]
         },
-        { "kind": "resource", "name": "Customer Products" },
-        { "kind": "resource", "name": "ServiciosCentrex" }
-      ]
+        {
+          "kind": "resource",
+          "name": "Customer Products",
+          "method": "GET",
+          "gateway": "apigee",
+          "path": "/crbproductinventory/v1/customerProducts",
+          "params": [
+            {
+              "name": "docId",
+              "kind": "text",
+              "source": "documentId"
+            },
+            {
+              "name": "groups",
+              "kind": "dropdown",
+              "options": [
+                "bigPyme",
+                "conectaPyme",
+                "bigPyme,conectaPyme"
+              ]
+            },
+            {
+              "name": "status",
+              "kind": "dropdown",
+              "options": [
+                "active",
+                "inactive"
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "resource",
+          "name": "ServiciosCentrex"
+        }
+    ,
+    {
+      "kind": "service",
+      "name": "MDG"
     },
-    { "kind": "service", "name": "MDG" },
-    { "kind": "service", "name": "Line Usage B2B" },
-    { "kind": "service", "name": "Customer View B2B" },
-    { "kind": "service", "name": "Eunomia" },
-    { "kind": "service", "name": "Excalibur" },
-    { "kind": "service", "name": "Profiler" }
+    {
+      "kind": "service",
+      "name": "Line Usage B2B"
+    },
+    {
+      "kind": "service",
+      "name": "Customer View B2B"
+    },
+    {
+      "kind": "service",
+      "name": "Eunomia"
+    },
+    {
+      "kind": "service",
+      "name": "Excalibur"
+    },
+    {
+      "kind": "service",
+      "name": "Profiler"
+    }
+  ]
+}
   ]
 }
