@@ -1,6 +1,6 @@
 [package]
 name = "resource-tester"
-version = "0.1.0"
+version = "1.0.0"
 description = "Probador de Recursos — comprueba recursos de backend en entornos no productivos"
 edition = "2021"
 
